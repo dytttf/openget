@@ -1,0 +1,14 @@
+__pycache__/
+.idea/
+poetry.lock
+
+
+# dev
+test.py
+*.txt
+*.html
+
+# build
+build/
+dist/
+*.egg-info/

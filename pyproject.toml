@@ -1,0 +1,34 @@
+[tool.poetry]
+name = "graper"
+version = "0.1.0"
+description = "A Spider FrameWork"
+authors = ["dytttf <dytttf@foxmail.com>"]
+license = "BSD"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+urllib3 = "^1.26.7"
+gevent = "^21.8.0"
+pymysql = "^1.0.2"
+redis = "^3.5.3"
+better-exceptions = "^0.3.3"
+tqdm = "^4.62.3"
+mysqlclient = "^2.0.3"
+httpx = {extras = ["http2"], version = "^0.20.0"}
+user-agent2 = "^2021.11.1"
+crontab = "^0.23.0"
+
+[tool.poetry.dev-dependencies]
+Sphinx = "^4.3.0"
+cx-oracle = "^8.3.0"
+ipython = "^7.29.0"
+isort = "^5.10.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[[tool.poetry.source]]
+name = "aliyun"
+default = true
+url = "https://mirrors.aliyun.com/pypi/simple/"
