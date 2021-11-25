@@ -1,5 +1,6 @@
 # coding:utf8
-from graper.spiders import Request, Response, Spider  # isort:skip
+from graper.spiders import Request, Response, Spider  # isort:skip # noqa
+
 import copy
 import datetime
 import json
@@ -7,6 +8,7 @@ import time
 from typing import Union
 from concurrent.futures import ThreadPoolExecutor
 from queue import Empty, Full, Queue
+from threading import Lock
 
 import redis
 
@@ -183,12 +185,15 @@ class SingleBatchSpider(Spider):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         default_redis_uri = kwargs.get("default_redis_uri", setting.default_redis_uri)
-        connection_pool = redis.BlockingConnectionPool.from_url(
-            default_redis_uri, max_connections=10, timeout=60
-        )
-        self.redis_conn = redis.StrictRedis(connection_pool=connection_pool)
+        if not self.use_sqlite:
+            self.redis_client = redis.StrictRedis(
+                connection_pool=redis.BlockingConnectionPool.from_url(
+                    default_redis_uri, max_connections=10, timeout=60
+                )
+            )
         default_mysql_uri = kwargs.get("default_mysql_uri", setting.default_mysql_uri)
-        self.db = DB().create(default_mysql_uri)
+        if self.db is None:
+            self.db = DB().create(default_mysql_uri)
 
         # redis集群地址
         self._simple_redis_cluster_conn: redis.Redis = None
@@ -240,8 +245,10 @@ class SingleBatchSpider(Spider):
 
         # redis任务缓存
         # 是否将redis任务临时使用内存缓存
-        self.cache_task = False
+        self.cache_task = self.use_sqlite or False
         self._cache_redis_task_list = Queue(120)
+        if self.use_sqlite:
+            self._cache_redis_task_list = Queue(10000)
         # 是否使用线程池在获取任务时加速任务状态修改
         self.multi_update_cache_task = False
 
@@ -307,11 +314,16 @@ class SingleBatchSpider(Spider):
         # 获取查看是否任务已经全部完成
         _db = self.db.copy()
         # 重置 2 为 0
-        sql = f"""update {self.task_table_name} 
-                    set {self.state_field_name}={self.state_dict['wait']} 
-                    where {self.state_field_name}={self.state_dict['run']} 
-                    limit {self.lost_task_reset_limit}"""
-        loss_count = _db.cursor.execute(sql)
+        sql = f"""
+            update {self.task_table_name} 
+            set {self.state_field_name}={self.state_dict['wait']} 
+            where {self.state_field_name}={self.state_dict['run']} 
+        """
+        if not self.use_sqlite:
+            # https://stackoverflow.com/questions/29071169/update-query-with-limit-cause-sqlite
+            sql += f" limit {self.lost_task_reset_limit}"
+        _db.cursor.execute(sql)
+        loss_count = _db.cursor.rowcount
         logger.debug("重置丢失任务数量: {}".format(loss_count))
         _db.close()
         return
@@ -355,7 +367,8 @@ class SingleBatchSpider(Spider):
         if obj:
             return self._get_task_obj(**kwargs)
         if self.task_key == "task:temp":
-            raise ValueError("no task_key: {}".format(self.task_key))
+            if not self.use_sqlite:
+                raise ValueError("no task_key: {}".format(self.task_key))
         task = self._get_task_from_redis(delay=redis_delay)
         if not task:
             self._get_task_from_mysql()
@@ -407,7 +420,7 @@ class SingleBatchSpider(Spider):
             #
 
             logger.info(
-                "Get {} tasks, take {} s".format(len(sql_result), _query_use_time)
+                "Get {} tasks, take {:0.3} s".format(len(sql_result), _query_use_time)
             )
             if not sql_result:
                 break
@@ -439,7 +452,8 @@ class SingleBatchSpider(Spider):
                 def _update_work(sql):
                     # 此处新建连接  多线程中不能共用  #todo 协程也不行
                     __db = _db.copy(protocol="mysql+pymysql")
-                    r = __db.cursor.execute(sql)
+                    __db.cursor.execute(sql)
+                    r = __db.cursor.rowcount
                     __db.close()
                     return r
 
@@ -468,7 +482,10 @@ class SingleBatchSpider(Spider):
                 _task_count = len(task_list) * self.task_group_limit
                 if _task_count > 1000:
                     current_get_task_count += _task_count
-                    self.redis_conn.lpush(self.task_key, *task_list)
+                    if self.use_sqlite:
+                        self.put_task(task_list, show_log=False)
+                    else:
+                        self.redis_client.lpush(self.task_key, *task_list)
                     task_list = []
             del sql_result
             if _cache_group_task_list:
@@ -476,7 +493,10 @@ class SingleBatchSpider(Spider):
                 del _cache_group_task_list
             if task_list:
                 current_get_task_count += len(task_list) * self.task_group_limit
-                self.redis_conn.lpush(self.task_key, *task_list)
+                if self.use_sqlite:
+                    self.put_task(task_list, show_log=False)
+                else:
+                    self.redis_client.lpush(self.task_key, *task_list)
                 del task_list
         _db.close()
         logger.info(
@@ -542,7 +562,7 @@ class SingleBatchSpider(Spider):
                 r = 1
         if task_list:
             task_key = task_key or self.task_key
-            r = self.redis_conn.lpush(task_key, *task_list)
+            r = self.redis_client.lpush(task_key, *task_list)
         return r
 
     def set_task_state(
@@ -625,6 +645,8 @@ class SingleBatchSpider(Spider):
         Returns:
 
         """
+        if self.use_sqlite:
+            return 0
         state_key = f"{self.task_key}:other_spider_stoped"
         if not self._simple_redis_cluster_conn:
             self._init_simple_redis_cluster(state_key)
@@ -648,6 +670,8 @@ class SingleBatchSpider(Spider):
         Returns:
 
         """
+        if self.use_sqlite:
+            return True
         state_key = f"{self.task_key}:other_spider_stoped"
         if not self._simple_redis_cluster_conn:
             self._init_simple_redis_cluster(state_key)
@@ -681,16 +705,21 @@ class SingleBatchSpider(Spider):
 
     def _check_lost_task(self):
         key = "{}:check_lost_task".format(self.task_key)
-        with util.RedisLock(key, timeout=self.lock_timeout, wait_timeout=0) as _lock:
-            if _lock.locked:
-                self.check_lost_task()
-                # 重置间隔最少1分钟
-                _sleep_time = 60
-                if self.debug:
-                    _sleep_time = 5
-                    # if self.fast_mode:
-                    #     _sleep_time = 1
-                time.sleep(_sleep_time)
+        if self.use_sqlite:
+            self.check_lost_task()
+        else:
+            with util.RedisLock(
+                key, timeout=self.lock_timeout, wait_timeout=0
+            ) as _lock:
+                if _lock.locked:
+                    self.check_lost_task()
+                    # 重置间隔最少1分钟
+                    _sleep_time = 60
+                    if self.debug:
+                        _sleep_time = 5
+                        # if self.fast_mode:
+                        #     _sleep_time = 1
+                    time.sleep(_sleep_time)
         return self._get_task_from_mysql()
 
     def _get_task_from_mysql(self):
@@ -701,38 +730,41 @@ class SingleBatchSpider(Spider):
         """
         check_lost_task_key = "{}:check_lost_task".format(self.task_key)
 
-        # 在获取任务前检测一下是否正在重置丢失任务 若正在重置 则等待重置完毕
-        # 因为正在重置的时候是获取不到任务的 并且会导致爬虫迅速结束 导致多进程变成单进程
-        with util.RedisLock(
-            key=check_lost_task_key,
-            timeout=self.lock_timeout,
-            wait_timeout=self.wait_lock_timeout,
-        ) as _lock:
-            # 由于仅仅做检测用 所以获取到锁后立刻释放
-            # 没获取到则一直等 等到超时
-            # 注意不能把获取任务放到此锁中间来 可能会造成释放两次锁的bug
-            pass
-        get_task_from_mysql_key = "{}:get_task_from_mysql".format(self.task_key)
-        # 这个锁的超时时间一般也要改
-        with util.RedisLock(
-            key=get_task_from_mysql_key,
-            timeout=self.lock_timeout,
-            wait_timeout=self.wait_lock_timeout,
-            break_wait=self.break_wait_get_task_from_mysql,
-        ) as _lock:
-            if _lock.locked:
-                # 检查内存
-                if self.container_memory_utilization > 0.6:
-                    self.suicide()
-                else:
-                    # 兼容无参数函数
-                    try:
-                        self.get_task_from_mysql(redis_lock=_lock)
-                    except TypeError as e:
-                        if "argument" in str(e):
-                            self.get_task_from_mysql()
-                        else:
-                            raise e
+        if self.use_sqlite:
+            self.get_task_from_mysql()
+        else:
+            # 在获取任务前检测一下是否正在重置丢失任务 若正在重置 则等待重置完毕
+            # 因为正在重置的时候是获取不到任务的 并且会导致爬虫迅速结束 导致多进程变成单进程
+            with util.RedisLock(
+                key=check_lost_task_key,
+                timeout=self.lock_timeout,
+                wait_timeout=self.wait_lock_timeout,
+            ) as _lock:
+                # 由于仅仅做检测用 所以获取到锁后立刻释放
+                # 没获取到则一直等 等到超时
+                # 注意不能把获取任务放到此锁中间来 可能会造成释放两次锁的bug
+                pass
+            get_task_from_mysql_key = "{}:get_task_from_mysql".format(self.task_key)
+            # 这个锁的超时时间一般也要改
+            with util.RedisLock(
+                key=get_task_from_mysql_key,
+                timeout=self.lock_timeout,
+                wait_timeout=self.wait_lock_timeout,
+                break_wait=self.break_wait_get_task_from_mysql,
+            ) as _lock:
+                if _lock.locked:
+                    # 检查内存
+                    if self.container_memory_utilization > 0.6:
+                        self.suicide()
+                    else:
+                        # 兼容无参数函数
+                        try:
+                            self.get_task_from_mysql(redis_lock=_lock)
+                        except TypeError as e:
+                            if "argument" in str(e):
+                                self.get_task_from_mysql()
+                            else:
+                                raise e
         return
 
     def _get_task_from_redis(self, delay: int = None, task_key: str = None):
@@ -757,18 +789,28 @@ class SingleBatchSpider(Spider):
         except Empty:
             pass
         if not task:
-            task_key = task_key or self.task_key
-            i = 0
-            task = self.redis_conn.rpop(task_key)
-            while not task and (i < delay // 1):
-                # 这里之所以重复n次获取 是为了应对一种特殊情况 比如
-                # 任务表是需要翻页采集的  然后其中某个任务翻页页码特别大  到最后只剩下这个任务在翻页了
-                # 由于redis中仅有一个任务 所以这里如果不等待的话 就会一直去mysql中获取  然后 在_get_task_from_mysql 会耽搁1分钟
-                # 于是每翻一页都需要1分钟。。。。。  xdf的翻页4000多页 我草  翻了好几天
-                # 暂停一会  然后从redis中获取翻页新发的任务  减少间隔
-                time.sleep(1)
-                task = self.redis_conn.rpop(task_key)
-                i += 1
+            if self.use_sqlite:
+                i = 0
+                while not task and (i < delay // 1):
+                    try:
+                        task = self._cache_redis_task_list.get_nowait()
+                    except Empty:
+                        pass
+                    time.sleep(1)
+                    i += 1
+            else:
+                task_key = task_key or self.task_key
+                i = 0
+                task = self.redis_client.rpop(task_key)
+                while not task and (i < delay // 1):
+                    # 这里之所以重复n次获取 是为了应对一种特殊情况 比如
+                    # 任务表是需要翻页采集的  然后其中某个任务翻页页码特别大  到最后只剩下这个任务在翻页了
+                    # 由于redis中仅有一个任务 所以这里如果不等待的话 就会一直去mysql中获取  然后 在_get_task_from_mysql 会耽搁1分钟
+                    # 于是每翻一页都需要1分钟。。。。。  xdf的翻页4000多页 我草  翻了好几天
+                    # 暂停一会  然后从redis中获取翻页新发的任务  减少间隔
+                    time.sleep(1)
+                    task = self.redis_client.rpop(task_key)
+                    i += 1
         return task
 
     def _get_task_obj(
@@ -813,7 +855,7 @@ class SingleBatchSpider(Spider):
         # connection_pool = redis.BlockingConnectionPool.from_url(
         #     redis_uri, max_connections=100, timeout=60
         # )
-        # self.redis_conn = redis.StrictRedis(connection_pool=connection_pool)
+        # self.redis_client = redis.StrictRedis(connection_pool=connection_pool)
         self._simple_redis_cluster_conn = redis.StrictRedis.from_url(redis_uri)
         return
 
@@ -944,7 +986,7 @@ class BatchSpider(SingleBatchSpider):
         if cache_batch_date and (time.time() - self._cache_batch_date["ts"] < 5):
             return cache_batch_date
         #
-        batch_date = self.redis_conn.get(self.batch_date_key)
+        batch_date = self.redis_client.get(self.batch_date_key)
         if not batch_date:
             _db = self.db.copy()
             # 从mysql中获取最后批次
@@ -961,8 +1003,8 @@ class BatchSpider(SingleBatchSpider):
                     if not isinstance(batch_date_str, str)
                     else batch_date_str
                 )
-                self.redis_conn.set(self.batch_date_key, batch_date_str)
-            batch_date = self.redis_conn.get(self.batch_date_key)
+                self.redis_client.set(self.batch_date_key, batch_date_str)
+            batch_date = self.redis_client.get(self.batch_date_key)
         if not batch_date:
             raise ValueError("获取batch_date失败")
         # 加入缓存
@@ -1034,13 +1076,13 @@ class BatchSpider(SingleBatchSpider):
 
         """
         state_key = "{}:reset_task_state".format(self.task_key)
-        state = self.redis_conn.get(state_key)
+        state = self.redis_client.get(state_key)
         return int(state.decode()) if state else 0
 
     @is_reset_task.setter
     def is_reset_task(self, value: int):
         state_key = "{}:reset_task_state".format(self.task_key)
-        return self.redis_conn.set(state_key, value)
+        return self.redis_client.set(state_key, value)
 
     def reset_task_table(self) -> int:
         """
@@ -1230,7 +1272,8 @@ class BatchSpider(SingleBatchSpider):
             now.strftime("%Y-%m-%d %H:%M:%S"),
             now.strftime("%Y-%m-%d %H:%M:%S"),
         )
-        _resp = self.db.cursor.execute(sql)
+        self.db.cursor.execute(sql)
+        _resp = self.db.cursor.rowcount
         return _resp
 
     def check_batch(self):
@@ -1284,7 +1327,7 @@ class BatchSpider(SingleBatchSpider):
         if self.batch_complete(total_count, done_count):
             logger.debug(f"上批次 {batch_date_str} 已完成 {done_count}/{total_count}")
             # 清理残留任务
-            self.redis_conn.delete(self.task_key)
+            self.redis_client.delete(self.task_key)
             # 检查本批次是否到达开始时间
             if self.is_new_batch_start(
                 now=now,
@@ -1308,7 +1351,7 @@ class BatchSpider(SingleBatchSpider):
                 logger.info(_message)
 
                 # 重置批次时间
-                _resp = self.redis_conn.set(self.batch_date_key, new_batch_date)
+                _resp = self.redis_client.set(self.batch_date_key, new_batch_date)
                 logger.debug("redis批次时间重置为{} {}(成功)".format(new_batch_date, _resp))
 
                 # 重置mysql任务表状态
@@ -1350,13 +1393,13 @@ class BatchSpider(SingleBatchSpider):
     @property
     def last_record_batch_count_time(self):
         key = "{}:last_record_batch_count_time".format(self.task_key)
-        ts = self.redis_conn.get(key)
+        ts = self.redis_client.get(key)
         return float(ts.decode()) if ts else 0
 
     @last_record_batch_count_time.setter
     def last_record_batch_count_time(self, value):
         key = "{}:last_record_batch_count_time".format(self.task_key)
-        self.redis_conn.set(key, value)
+        self.redis_client.set(key, value)
         return
 
     def _record_batch_count(self, debug: bool = False):

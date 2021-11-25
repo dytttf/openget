@@ -4,6 +4,7 @@ poetry.lock
 
 
 # dev
+tests/
 test.py
 *.txt
 *.html
