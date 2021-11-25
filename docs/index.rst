@@ -1,0 +1,29 @@
+.. Graper documentation master file, created by
+   sphinx-quickstart on Mon Nov 29 16:05:34 2021.
+   You can adapt this file completely to your liking, but it should at least
+   contain the root `toctree` directive.
+
+Graper: Spider for Geek
+===================================
+
+Release v0.1.1
+
+**Graper** is a simple **Spider framework** for Geek, you can control everything.
+
+Feature
+-------
+- Gevent + Httpx Based
+- Batch Task Support
+
+The User Guide
+--------------
+todo
+
+.. toctree::
+   :maxdepth: 2
+
+   user/install
+
+Example Projects
+----------------
+Graper Projects: https://github.com/dytttf/graper-projects

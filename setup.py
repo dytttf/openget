@@ -22,6 +22,7 @@ setup(
         "tqdm",
         "httpx[http2]",
         "user-agent2",
+        "urllib3",
     ],
     license="BSD",
     # https://pypi.org/classifiers/

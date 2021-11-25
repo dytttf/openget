@@ -7,7 +7,7 @@ import os
 from os import path
 
 
-# All env define
+# All env defines
 env = {
     # PROD / DEV / ...
     "GRAPER_ENV": "DEV",
@@ -35,8 +35,10 @@ def parse_env_from_file(filepath):
                 line = line.strip()
                 if not line:
                     continue
+                # parse comment line
                 if line.startswith(("#", "'", '"')):
                     continue
+                # parse k,v line
                 k, v = line.split("=", 1)
                 if v.startswith(("'", '"')):
                     v = v[1:-1]
@@ -44,13 +46,14 @@ def parse_env_from_file(filepath):
     return _env
 
 
-# Parse from ~/.graper/.env
+# from ~/.graper/.env
 GLOBAL_ENV_FILE = path.join(path.expanduser("~"), ".graper/.env")
 env.update(parse_env_from_file(GLOBAL_ENV_FILE))
 
-# Parse from $(pwd)/.env
+# from $(pwd)/.env
 LOCAL_ENV_FILE = path.join(os.getcwd(), ".env")
 env.update(parse_env_from_file(LOCAL_ENV_FILE))
 
-for k, v in env.items():
-    os.environ[k] = v
+for env_k, env_v in env.items():
+    if env_v is not None:
+        os.environ[env_k] = env_v
