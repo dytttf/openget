@@ -105,7 +105,7 @@ def _get_proxies(line: str):
         ip = f"{auth}@{ip}"
     if not protocol:
         proxies = {
-            "https": f"https://{ip}:{port}",
+            "https": f"http://{ip}:{port}",
             "http": f"http://{ip}:{port}",
         }
     else:

@@ -12,7 +12,7 @@ class Response(HttpxResponse):
         response: Optional[HttpxResponse],
         request: Request,
         exception: Optional[Exception] = None,
-        **kwargs
+        **kwargs,
     ):
         """
 
@@ -22,12 +22,18 @@ class Response(HttpxResponse):
             exception: download exception
             **kwargs:
         """
-        self.request = request
+        self.request: Request = request
         self.response = response
         self.exception = exception or (
             response.graper_exception if response is not None else None
         )
         self.kwargs = kwargs
+
+    def __repr__(self):
+        if self.response is not None:
+            return f"<Response [{self.status_code} {self.reason_phrase}]>"
+        else:
+            return f"<Response None>"
 
     def __getattr__(self, item):
         """
@@ -38,6 +44,8 @@ class Response(HttpxResponse):
         Returns:
 
         """
+        # TODO
+        # if self.response is None, print(response) will raise Exception
         return getattr(self.response, item)
 
     def __del__(self):

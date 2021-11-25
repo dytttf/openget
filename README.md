@@ -19,4 +19,3 @@ from graper.spiders import *
 
 ## TODO
 - ftp download
-- sqlite

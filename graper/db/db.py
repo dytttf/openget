@@ -19,6 +19,11 @@ class DB(object):
         oracle:
             oracle://username:password@ip:port/db?charset=utf8
             oracle://sys:chang_on_install@127.0.0.1:1521/orcl?charset=utf8
+
+        sqllite:
+            sqlite:///tmp/a.db
+            sqlite://:memory:
+            sqlite://{path}
     """
 
     @staticmethod
@@ -38,7 +43,15 @@ class DB(object):
         if uri is None:
             raise Exception("db uri is empty")
 
-        # 收集参数
+        # sqlite
+        if uri.startswith("sqlite://"):
+            db_options = {"database": uri.replace("sqlite://", "")}
+            from graper.db import db_sqlite
+
+            db_opt = db_sqlite.SQLiteOpt(db_options)
+            return db_opt
+
+        #
         kwargs["reuse_connection"] = reuse_connection
 
         db_options = uri_to_dict(uri)

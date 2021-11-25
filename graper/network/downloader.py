@@ -488,7 +488,7 @@ class Downloader(object):
         proxies: Dict = kwargs.pop("proxies", None)
         verify = kwargs.pop("verify")
         cert = kwargs.pop("cert", None)
-        if proxies or verify or cert:
+        if proxies or verify is not None or cert is not None:
             if proxies is not None:
                 proxies = {
                     k if "://" in k else f"{k}://": v for k, v in proxies.items()

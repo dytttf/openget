@@ -3,32 +3,45 @@
 isort:skip_file
 """
 # may be memory leak
-from gevent import monkey  # isort:skip
+from gevent import monkey  # isort:skip # noqa
 
 # tips if patch subprocess, os.popen will slow
-monkey.patch_all(os=False, subprocess=False, signal=False)  # isort:skip
+monkey.patch_all(os=False, subprocess=False, signal=False)  # isort:skip  # noqa
 
-import warnings  # isort:skip
+import warnings  # isort:skip  # noqa
 
-warnings.filterwarnings("ignore")  # isort:skip
+warnings.filterwarnings("ignore")  # isort:skip  # noqa
 
 #
 import os
+import sys
 import threading
 import time
+from os import path
 from queue import Empty, Queue
-from typing import Callable, List, Optional, Union, Dict
+from typing import Callable, Optional
 
 from graper import util
 from graper.network import downloader
 from graper.spiders import Request, Response
 from graper.utils import log
+from graper.db import DB
 
 logger = log.get_logger(__file__)
 
 
 class Spider(object):
     def __init__(self, **kwargs):
+        """
+
+        Args:
+            **kwargs:
+                pool_size:
+                use_sqlite:
+                downloader:
+
+        """
+
         super().__init__()
         try:
             self.name = self.__class__.__name__
@@ -38,6 +51,17 @@ class Spider(object):
         self.downloader = kwargs.get("downloader", downloader.Downloader())
         #
         self.db = None
+        # sqlite mode
+        # only support One Process
+        self.use_sqlite = kwargs.get("use_sqlite") or False
+        # create sqlite db
+        if self.use_sqlite is True:
+            sqlite_db_path = path.join(
+                path.dirname(path.join(os.getcwd(), sys.argv[0])), "sqlite.db"
+            )
+            self.db = DB.create("sqlite://{}".format(sqlite_db_path))
+            logger.info("use sqlite db in path {}".format(sqlite_db_path))
+
         #
         self.pool_size = kwargs.get("pool_size", 100)
         self.event_exit = threading.Event()
@@ -72,6 +96,8 @@ class Spider(object):
         self._in_docker = (
             True if os.getenv("GRAPER_IN_DOCKER", "false").lower() != "false" else False
         )
+
+        self._stop = False
 
     def __enter__(self):
         return self
@@ -120,16 +146,16 @@ class Spider(object):
         """
         pass
 
-    def break_spider(self, **kwargs) -> Optional[int]:
+    def break_spider(self, **kwargs) -> Optional[bool]:
         """
             Called in function start_requests, user can custom spider stop conditions
         Returns:
             1: stop iterated start_requests
             other: pass
         """
-        pass
+        return self._stop
 
-    def _break_spider(self) -> Optional[int]:
+    def _break_spider(self) -> Optional[bool]:
         """
             decrease the numbers of break_spider calls
         Returns:
@@ -142,7 +168,7 @@ class Spider(object):
         ) > self.break_spider_check_interval:
             self._last_check_break_spider_ts = time.time()
             return self.break_spider()
-        return 0
+        return False
 
     def close(self, **kwargs):
         pass
@@ -325,7 +351,7 @@ class Spider(object):
         try:
             # 减少日志量
             _last_show_qsize_ts = 0
-            if self.break_spider() != 1 and not self._killed:
+            if self._break_spider() != 1 and not self._killed:
                 for item in self.start_requests():
                     if isinstance(item, Request):
                         self.request_queue.put(item)
@@ -377,8 +403,8 @@ class Spider(object):
                     break
             if spider_break:
                 logger.debug(
-                    "main thread was stopped ...  "
-                    "waiting for sub thread stop... "
+                    "main thread was stopped, "
+                    "waiting for sub thread stoping... "
                     "remain tasks: {} "
                     "active threads: {} "
                     "stop reason: {}".format(
@@ -439,9 +465,15 @@ class Spider(object):
         Returns:
 
         """
-        logger.debug("please kill me ......")
+        logger.info("please kill me ......")
         self._killed = True
         self._close_reason = "Killed(suicide)"
+        return
+
+    def stop(self, message="stopped by user"):
+        logger.info(message)
+        self._stop = True
+        self._close_reason = "Stopped(By User)"
         return
 
     def start_requests(self):

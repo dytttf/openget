@@ -1,7 +1,7 @@
 # coding:utf8
 from setuptools import setup, find_packages
 
-version = "0.1.3"
+version = "0.1.4"
 
 setup(
     name="graper",
@@ -23,15 +23,16 @@ setup(
         "httpx[http2]",
         "user-agent2",
         "urllib3",
+        "oss2",
     ],
     license="BSD",
     # https://pypi.org/classifiers/
-    classifiers=(
+    classifiers=[
         "Development Status :: 3 - Alpha",
         "Framework :: Scrapy",
         "Operating System :: POSIX",
         "Programming Language :: Python :: 3 :: Only",
         "License :: OSI Approved :: BSD License",
-    ),
+    ],
     keywords=["graper", "spider", "batch-spider"],
 )
