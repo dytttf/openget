@@ -323,6 +323,9 @@ class Downloader(object):
 
         self.session = self.make_httpx_client()
 
+        # User Define
+        self._custom_headers = {}
+
     def close(self):
         for pool in [self.cookie_pool, self.referer_pool, self.user_agent_pool]:
             if pool:
@@ -332,6 +335,18 @@ class Downloader(object):
                     pass
         self.session.close()
 
+    def add_headers(self, headers: Dict):
+        """
+            Add headers to default headers
+
+        Args:
+            headers:
+
+        Returns:
+
+        """
+        self._custom_headers.update(util.format_headers(headers))
+
     @property
     def default_headers(self):
         headers = {
@@ -340,6 +355,7 @@ class Downloader(object):
             "Accept-Encoding": "gzip, deflate",
             "Connection": "keep-alive",
         }
+        headers.update(self._custom_headers)
         return headers
 
     @staticmethod
@@ -370,8 +386,7 @@ class Downloader(object):
     def make_httpx_client(self, **kwargs):
         if "limits" not in kwargs:
             kwargs["limits"] = httpx.Limits(
-                max_connections=1000,
-                max_keepalive_connections=1000,
+                max_connections=1000, max_keepalive_connections=1000,
             )
         if "http2" not in kwargs:
             kwargs["http2"] = self.http2
@@ -533,11 +548,7 @@ class Downloader(object):
             "proxies": kwargs.get("proxies", None),
             "headers": kwargs["headers"].copy(),
             "cookies": kwargs["cookies"].copy(),
-            "time": {
-                "start": _start,
-                "end": _end,
-                "use": _end - _start,
-            },
+            "time": {"start": _start, "end": _end, "use": _end - _start,},
         }
         if not kwargs["stream"]:
             response.close()

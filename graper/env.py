@@ -24,6 +24,9 @@ env = {
     "GRAPER_PROXY_SERVICE_URL": None,
     # docker mode
     "GRAPER_IN_DOCKER": "false",
+    # logging
+    # forbidden better_exceptions
+    "GRAPER_FORBIDDED_BETTER_EXCEPTIONS": None
 }
 
 
