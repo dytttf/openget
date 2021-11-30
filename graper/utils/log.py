@@ -60,8 +60,14 @@ def get_logger(
     _logger.setLevel(log_level)
 
     #
+    def _format_exception(exc_info):
+        exc_str = format_exception(*exc_info)
+        return "\n".join(exc_str) if not isinstance(exc_str, str) else exc_str
+
+    #
     formatter = logging.Formatter(log_format)
-    formatter.formatException = lambda exc_info: "\n".join(format_exception(*exc_info))
+    if os.getenv("GRAPER_FORBIDDED_BETTER_EXCEPTIONS", None) is None:
+        formatter.formatException = _format_exception
 
     stream_handler = logging.StreamHandler(stream=sys.stdout)
     stream_handler.setFormatter(formatter)
