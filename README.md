@@ -5,7 +5,6 @@ A Spider FrameWork.
 You can install graper by simply doing:
 
     pip install graper
-    pip install -e git+https://github.com/dytttf/graper.git#egg=graper
     
 ## Usage
 **Very Important Thing**
