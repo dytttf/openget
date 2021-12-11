@@ -1,7 +1,7 @@
 # coding:utf8
 from setuptools import setup, find_packages
 
-version = "0.1.4"
+from graper import version
 
 setup(
     name="graper",
