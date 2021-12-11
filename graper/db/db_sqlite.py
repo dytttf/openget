@@ -15,8 +15,11 @@ from typing import List, Tuple, Dict
 import sqlite3
 import pymysql
 
+# sqlite need use ' to escape '
+pymysql.converters._escape_table = {ord("'"): "''"}
 
 escape_str = pymysql.converters.escape_str
+
 
 from graper.utils import log
 

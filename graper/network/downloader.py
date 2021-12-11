@@ -11,7 +11,6 @@ from typing import List, Dict, Union
 import httpx
 import redis
 
-
 try:
     from user_agent2 import generate_user_agent
 except ImportError:
@@ -386,10 +385,14 @@ class Downloader(object):
     def make_httpx_client(self, **kwargs):
         if "limits" not in kwargs:
             kwargs["limits"] = httpx.Limits(
-                max_connections=1000, max_keepalive_connections=1000,
+                max_connections=1000,
+                max_keepalive_connections=1000,
             )
         if "http2" not in kwargs:
             kwargs["http2"] = self.http2
+
+        if "timeout" not in kwargs:
+            kwargs["timeout"] = self.timeout
 
         return httpx.Client(**kwargs)
 
@@ -456,12 +459,16 @@ class Downloader(object):
         # user custom session
         _session = kwargs.pop("session", None)
 
-        # use cookies rather than header
+        # use cookies rather than headers
         if "cookies" not in kwargs:
             cookies_str = kwargs["headers"].get("Cookie", "")
             cookies_str += ";" + (_session or self.session).headers.get("Cookie", "")
             kwargs["cookies"] = dict(
-                [x.split("=", maxsplit=1) for x in cookies_str.split(";") if x.strip()]
+                [
+                    x.strip().split("=", maxsplit=1)
+                    for x in cookies_str.split(";")
+                    if x.strip()
+                ]
             )
             kwargs["cookies"].update(_cookies)
         if ("data" in kwargs or "json" in kwargs) and method == "GET":
@@ -484,16 +491,23 @@ class Downloader(object):
         Returns:
 
         """
+        # compatible allow_redirects
+        if "allow_redirects" in kwargs:
+            kwargs["follow_redirects"] = kwargs.pop("allow_redirects")
+        #
         stream = kwargs.pop("stream")
         proxies: Dict = kwargs.pop("proxies", None)
         verify = kwargs.pop("verify")
         cert = kwargs.pop("cert", None)
-        if proxies or verify is not None or cert is not None:
+        cookies = kwargs.pop("cookies", None)
+        if proxies or verify is not None or cert is not None or cookies is not None:
             if proxies is not None:
                 proxies = {
                     k if "://" in k else f"{k}://": v for k, v in proxies.items()
                 }
-            session = self.make_httpx_client(proxies=proxies, verify=verify, cert=cert)
+            session = self.make_httpx_client(
+                proxies=proxies, verify=verify, cert=cert, cookies=cookies
+            )
         else:
             if session is None:
                 session = self.session if self.use_session else httpx
@@ -548,7 +562,11 @@ class Downloader(object):
             "proxies": kwargs.get("proxies", None),
             "headers": kwargs["headers"].copy(),
             "cookies": kwargs["cookies"].copy(),
-            "time": {"start": _start, "end": _end, "use": _end - _start,},
+            "time": {
+                "start": _start,
+                "end": _end,
+                "use": _end - _start,
+            },
         }
         if not kwargs["stream"]:
             response.close()

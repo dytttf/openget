@@ -13,5 +13,7 @@ RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 3B4FE6ACC0B21F32 &&
     vim \
     && apt clean
 
+COPY resources /tmp/
+
 RUN pip install -i https://mirrors.aliyun.com/pypi/simple --upgrade pip &&\
-    pip install -i https://mirrors.aliyun.com/pypi/simple --no-cache-dir graper;
+    pip install -i https://mirrors.aliyun.com/pypi/simple --no-cache-dir /tmp/*.whl;

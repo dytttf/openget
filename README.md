@@ -17,5 +17,13 @@ from graper.spiders import *
 ## About Environment Variable
 > ~/.graper/.env < $(pwd)/.env
 
+
+## docker build
+```shell
+cd docekr
+bash build.sh
+```
+
 ## TODO
 - ftp download
+- auto add task

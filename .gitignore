@@ -13,5 +13,6 @@ test.py
 # build
 build/
 dist/
+resources/
 *.egg-info/
 _build/
