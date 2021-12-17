@@ -21,9 +21,9 @@ from graper.utils import log
 OracleError = (cx_Oracle.DatabaseError,)
 
 
-def escape_string(value):
+def escape_str(value):
     value = value.replace("'", "''")
-    return value
+    return "'{}'".format(value)
 
 
 def get_connection(options, **kwargs):
@@ -167,6 +167,10 @@ class OracleOpt(object):
         return cursor
 
     @staticmethod
+    def escape_str(*args, **kwargs):
+        return escape_str(*args, **kwargs)
+
+    @staticmethod
     def escape_values(data, sort_keys=None) -> OrderedDict:
         """
             Convert data to oracle support types.
@@ -190,10 +194,10 @@ class OracleOpt(object):
                     _step = 2000
                     for i in range(0, len(v), _step):
                         v_list.append(v[i : i + _step])
-                    v_list = ["to_clob('{}')".format(escape_string(x)) for x in v_list]
+                    v_list = ["to_clob({})".format(escape_str(x)) for x in v_list]
                     v = "||".join(v_list)
                 else:
-                    v = "'{}'".format(escape_string(v))
+                    v = "{}".format(escape_str(v))
             elif isinstance(v, (int, float)):
                 v = str(v)
             elif isinstance(v, (datetime.date, datetime.time)):
@@ -202,7 +206,7 @@ class OracleOpt(object):
                 v = "null"
             else:
                 v = json.dumps(v, ensure_ascii=False)
-                v = "'{}'".format(escape_string(v))
+                v = "{}".format(escape_str(v))
             data[str(k)] = v
         return data
 

@@ -260,9 +260,6 @@ class SingleBatchSpider(Spider):
         # 调试模式
         self.debug = False
 
-    def add_task(self):
-        pass
-
     def break_spider(self, **kwargs):
         """
         在覆盖我的时候请注意

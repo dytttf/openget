@@ -27,3 +27,7 @@ bash build.sh
 ## TODO
 - ftp download
 - auto add task
+- statis crawl speed
+- browser support: zhipin.com tmall.com
+- sqlite.db rename
+- use cmd to create spider template

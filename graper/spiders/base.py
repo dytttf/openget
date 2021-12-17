@@ -37,7 +37,9 @@ class Spider(object):
         Args:
             **kwargs:
                 pool_size:
-                use_sqlite:
+                use_sqlite: default False
+                sqlite_file_name: default to sqlite.db
+                sqlite_file_path: default to $pwd/sqlite.db
                 downloader:
 
         """
@@ -56,8 +58,13 @@ class Spider(object):
         self.use_sqlite = kwargs.get("use_sqlite") or False
         # create sqlite db
         if self.use_sqlite is True:
-            sqlite_db_path = path.join(
-                path.dirname(path.join(os.getcwd(), sys.argv[0])), "sqlite.db"
+            #
+            sqlite_db_name = kwargs.get("sqlite_file_name", "sqlite.db")
+            sqlite_db_path = kwargs.get(
+                "sqlite_file_path",
+                path.join(
+                    path.dirname(path.join(os.getcwd(), sys.argv[0])), sqlite_db_name
+                ),
             )
             self.db = DB.create("sqlite://{}".format(sqlite_db_path))
             logger.info("use sqlite db in path {}".format(sqlite_db_path))
@@ -123,6 +130,9 @@ class Spider(object):
                 except Exception as e:
                     logger.exception(e)
         return
+
+    def add_task(self):
+        pass
 
     def before_start(self, **kwargs):
         """

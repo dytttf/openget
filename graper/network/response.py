@@ -44,8 +44,10 @@ class Response(HttpxResponse):
         Returns:
 
         """
-        # TODO
-        # if self.response is None, print(response) will raise Exception
+        if self.response is None:
+            return None
+        # Do not use getattr(self.response, item, None)
+        # it will affect HttpxResponse get attrs
         return getattr(self.response, item)
 
     def __del__(self):

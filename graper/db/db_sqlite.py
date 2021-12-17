@@ -184,6 +184,10 @@ class SQLiteOpt(object):
         return 0
 
     @staticmethod
+    def escape_str(*args, **kwargs):
+        return escape_str(*args, **kwargs)
+
+    @staticmethod
     def escape_values(
         data: Dict, sort_keys: List = None, strip: bool = True
     ) -> OrderedDict:

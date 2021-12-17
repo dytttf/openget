@@ -16,14 +16,14 @@ from typing import List, Tuple, Dict
 
 import pymysql
 
+escape_str = pymysql.converters.escape_str
+
 try:
     import_mysqldb_error = None
     import MySQLdb
 except ImportError as e:
     MySQLdb = None
     import_mysqldb_error = e
-
-escape_str = pymysql.converters.escape_str
 
 from graper.utils import log
 
@@ -220,6 +220,10 @@ class MySQLOpt(object):
         connection = connection or get_connection(self.options, **self.kwargs)
         cursor = Cursor(connection, self.options, logger=self.logger, **self.kwargs)
         return cursor
+
+    @staticmethod
+    def escape_str(*args, **kwargs):
+        return escape_str(*args, **kwargs)
 
     @staticmethod
     def escape_values(
