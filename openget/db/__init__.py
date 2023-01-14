@@ -2,6 +2,6 @@
 """
 db = DB.create("mysql://root:123456@1.1.1.1:3306/test")
 """
-from graper.db.db import DB
+from openget.db.db import DB
 
 __all__ = ["DB"]

@@ -16,7 +16,7 @@ from typing import List, Dict
 
 import cx_Oracle
 
-from graper.utils import log
+from openget.utils import log
 
 OracleError = (cx_Oracle.DatabaseError,)
 

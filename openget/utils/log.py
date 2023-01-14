@@ -16,8 +16,8 @@ def detect_tmp_log_dir() -> str:
     """
         Get
     Returns:
-        *unix: /var/log/graper_log/
-        mac: /tmp/graper_log
+        *unix: /var/log/openget_log/
+        mac: /tmp/openget_log
         windows: tempfile.gettempdir()
 
     """
@@ -30,7 +30,7 @@ def detect_tmp_log_dir() -> str:
         log_dir = "/var/log/"
 
     # TODO support env
-    log_dir = os.path.join(log_dir, "graper_log")
+    log_dir = os.path.join(log_dir, "openget_log")
     os.makedirs(log_dir, exist_ok=True)
     return log_dir
 
@@ -66,7 +66,7 @@ def get_logger(
 
     #
     formatter = logging.Formatter(log_format)
-    if os.getenv("GRAPER_FORBIDDED_BETTER_EXCEPTIONS", None) is None:
+    if os.getenv("OPENGET_FORBIDDED_BETTER_EXCEPTIONS", None) is None:
         formatter.formatException = _format_exception
 
     stream_handler = logging.StreamHandler(stream=sys.stdout)

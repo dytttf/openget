@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "graper"
+name = "openget"
 version = "0.1.0"
 description = "A Spider FrameWork"
 authors = ["dytttf <dytttf@foxmail.com>"]

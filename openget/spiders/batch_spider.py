@@ -1,5 +1,5 @@
 # coding:utf8
-from graper.spiders import Request, Response, Spider  # isort:skip # noqa
+from openget.spiders import Request, Response, Spider  # isort:skip # noqa
 
 import copy
 import datetime
@@ -12,9 +12,9 @@ from threading import Lock
 
 import redis
 
-from graper import setting, util
-from graper.db import DB
-from graper.utils import log
+from openget import setting, util
+from openget.db import DB
+from openget.utils import log
 
 logger = log.get_logger(__file__)
 
@@ -872,7 +872,7 @@ class SingleBatchSpider(Spider):
         Returns:
 
         """
-        if self.debug or setting.GRAPER_ENV == "DEV":
+        if self.debug or setting.OPENGET_ENV == "DEV":
             self.other_spider_stoped = 0
         return
 

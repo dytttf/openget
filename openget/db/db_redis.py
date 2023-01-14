@@ -19,7 +19,7 @@ import redis
 from redis.sentinel import Sentinel
 from urllib.parse import urlparse, parse_qs, unquote_plus
 
-from graper.db.util import quote_uri_password
+from openget.db.util import quote_uri_password
 
 
 def parse_sentinel_uri(uri) -> Dict:

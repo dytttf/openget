@@ -17,8 +17,8 @@ from typing import Dict
 
 import redis
 
-from graper import util
-from graper.utils import log
+from openget import util
+from openget.utils import log
 
 #
 redis_pool_cache = {}

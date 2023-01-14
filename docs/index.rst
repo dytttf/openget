@@ -1,14 +1,14 @@
-.. Graper documentation master file, created by
+.. OpenGet documentation master file, created by
    sphinx-quickstart on Mon Nov 29 16:05:34 2021.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Graper: Spider for Geek
+OpenGet: Spider for Geek
 ===================================
 
 Release v0.1.1
 
-**Graper** is a simple **Spider framework** for Geek, you can control everything.
+**OpenGet** is a simple **Spider framework** for Geek, you can control everything.
 
 Feature
 -------
@@ -26,4 +26,4 @@ todo
 
 Example Projects
 ----------------
-Graper Projects: https://github.com/dytttf/graper-projects
+OpenGet Projects: https://github.com/dytttf/openget-projects

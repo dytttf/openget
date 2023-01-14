@@ -21,7 +21,7 @@ pymysql.converters._escape_table = {ord("'"): "''"}
 escape_str = pymysql.converters.escape_str
 
 
-from graper.utils import log
+from openget.utils import log
 
 
 def get_connection(options, **kwargs):

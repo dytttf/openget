@@ -1,21 +1,21 @@
-# graper
+# openget
 A Spider FrameWork.
 
 ## Installation
-You can install graper by simply doing:
+You can install openget by simply doing:
 
-    pip install graper
+    pip install openget
     
 ## Usage
 **Very Important Thing**
 This line must be the first line in code
 ```
-from graper.spiders import *
+from openget.spiders import *
 ```
 
 
 ## About Environment Variable
-> ~/.graper/.env < $(pwd)/.env
+> ~/.openget/.env < $(pwd)/.env
 
 
 ## docker build

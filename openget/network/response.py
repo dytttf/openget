@@ -2,7 +2,7 @@
 from typing import Optional
 
 from httpx import Response as HttpxResponse
-from graper.network.request import Request
+from openget.network.request import Request
 
 
 # Inhert HttpxResponse only for IDE inspect
@@ -18,14 +18,14 @@ class Response(HttpxResponse):
 
         Args:
             response: httpx.Response
-            request: graper.network.requests.Request
+            request: openget.network.requests.Request
             exception: download exception
             **kwargs:
         """
         self.request: Request = request
         self.response = response
         self.exception = exception or (
-            response.graper_exception if response is not None else None
+            response.openget_exception if response is not None else None
         )
         self.kwargs = kwargs
 
@@ -87,7 +87,7 @@ class Response(HttpxResponse):
                 Response.response_to_file(r, f)
 
             //
-            from graper.network.downloader import Downloader
+            from openget.network.downloader import Downloader
 
             downloader = Downloader(proxy_enable=False)
 

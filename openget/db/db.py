@@ -6,7 +6,7 @@ try:
 except ImportError:
     MySQLdb = None
 
-from graper.db.util import uri_to_dict
+from openget.db.util import uri_to_dict
 
 
 class DB(object):
@@ -46,7 +46,7 @@ class DB(object):
         # sqlite
         if uri.startswith("sqlite://"):
             db_options = {"database": uri.replace("sqlite://", "")}
-            from graper.db import db_sqlite
+            from openget.db import db_sqlite
 
             db_opt = db_sqlite.SQLiteOpt(db_options)
             return db_opt
@@ -64,15 +64,15 @@ class DB(object):
                     db_options["type"] = "mysql+mysqldb"
                 else:
                     db_options["type"] = "mysql+pymysql"
-            from graper.db import db_mysql
+            from openget.db import db_mysql
 
             db_opt = db_mysql.MySQLOpt(db_options, **kwargs)
         elif db_options["type"].startswith("oracle"):
-            from graper.db import db_oracle
+            from openget.db import db_oracle
 
             db_opt = db_oracle.OracleOpt(db_options, **kwargs)
         elif db_options["type"].startswith("redis"):
-            from graper.db.db_redis import create_redis_client
+            from openget.db.db_redis import create_redis_client
 
             db_opt = create_redis_client(uri)
 

@@ -17,7 +17,7 @@
 
 # -- Project information -----------------------------------------------------
 
-project = "Graper"
+project = "OpenGet"
 copyright = "2021, Dytttf"
 author = "Dytttf"
 

@@ -25,7 +25,7 @@ except ImportError as e:
     MySQLdb = None
     import_mysqldb_error = e
 
-from graper.utils import log
+from openget.utils import log
 
 
 MysqlError = (pymysql.OperationalError, pymysql.ProgrammingError)

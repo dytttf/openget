@@ -24,8 +24,8 @@ from urllib3.exceptions import InsecureRequestWarning
 urllib3.disable_warnings(InsecureRequestWarning)
 
 
-from graper.utils import log
-from graper import setting
+from openget.utils import log
+from openget import setting
 
 
 logger = log.get_logger(__file__)

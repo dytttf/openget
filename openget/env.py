@@ -11,23 +11,23 @@ from os import path
 # All env defines
 env = {
     # PROD / DEV / ...
-    "GRAPER_ENV": "DEV",
+    "OPENGET_ENV": "DEV",
     # default mysql config
-    "GRAPER_MYSQL_HOST": None,
-    "GRAPER_MYSQL_PORT": "3306",
-    "GRAPER_MYSQL_USER": None,
-    "GRAPER_MYSQL_PASSWD": None,
-    "GRAPER_MYSQL_CHARSET": "utf8mb4",
-    "GRAPER_MYSQL_DB": "graper",
+    "OPENGET_MYSQL_HOST": None,
+    "OPENGET_MYSQL_PORT": "3306",
+    "OPENGET_MYSQL_USER": None,
+    "OPENGET_MYSQL_PASSWD": None,
+    "OPENGET_MYSQL_CHARSET": "utf8mb4",
+    "OPENGET_MYSQL_DB": "openget",
     # default redis config
-    "GRAPER_REDIS_URI": "redis://localhost:6379/0",
+    "OPENGET_REDIS_URI": "redis://localhost:6379/0",
     # default proxy service url
-    "GRAPER_PROXY_SERVICE_URL": None,
+    "OPENGET_PROXY_SERVICE_URL": None,
     # docker mode
-    "GRAPER_IN_DOCKER": "false",
+    "OPENGET_IN_DOCKER": "false",
     # logging
     # forbidden better_exceptions
-    "GRAPER_FORBIDDED_BETTER_EXCEPTIONS": None,
+    "OPENGET_FORBIDDED_BETTER_EXCEPTIONS": None,
 }
 
 
@@ -54,8 +54,8 @@ def parse_env_from_file(filepath):
     return _env
 
 
-# from ~/.graper/.env
-GLOBAL_ENV_FILE = path.join(path.expanduser("~"), ".graper/.env")
+# from ~/.openget/.env
+GLOBAL_ENV_FILE = path.join(path.expanduser("~"), ".openget/.env")
 env.update(parse_env_from_file(GLOBAL_ENV_FILE))
 
 # from $(pwd)/.env

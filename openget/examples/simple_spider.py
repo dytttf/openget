@@ -1,4 +1,4 @@
-from graper.spiders import *
+from openget.spiders import *
 
 
 class SimpleSpider(Spider):

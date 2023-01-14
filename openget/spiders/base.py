@@ -21,11 +21,11 @@ from os import path
 from queue import Empty, Queue
 from typing import Callable, Optional
 
-from graper import util
-from graper.network import downloader
-from graper.spiders import Request, Response
-from graper.utils import log
-from graper.db import DB
+from openget import util
+from openget.network import downloader
+from openget.spiders import Request, Response
+from openget.utils import log
+from openget.db import DB
 
 logger = log.get_logger(__file__)
 
@@ -101,7 +101,7 @@ class Spider(object):
 
         # Is in docker runing
         self._in_docker = (
-            True if os.getenv("GRAPER_IN_DOCKER", "false").lower() != "false" else False
+            True if os.getenv("OPENGET_IN_DOCKER", "false").lower() != "false" else False
         )
 
         self._stop = False

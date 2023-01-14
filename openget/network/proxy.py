@@ -17,7 +17,7 @@ from os import path
 import redis
 import httpx
 
-from graper.utils import log
+from openget.utils import log
 
 #
 cache_dir = path.join(path.dirname(__file__), "proxy_file")
@@ -161,7 +161,7 @@ def get_proxy_from_redis(
     """
 
     if redis_uri:
-        from graper.db.db_redis import create_redis_client
+        from openget.db.db_redis import create_redis_client
 
         redis_client = create_redis_client(redis_uri)
     # TODO Support expire proxy by timestamp score
@@ -874,7 +874,7 @@ class ProxyPool:
 
 
 #
-default_proxy_pool = ProxyPool(proxy_source_uri=[os.getenv("GRAPER_PROXY_SERVICE_URL")])
+default_proxy_pool = ProxyPool(proxy_source_uri=[os.getenv("OPENGET_PROXY_SERVICE_URL")])
 
 
 if __name__ == "__main__":

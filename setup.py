@@ -1,17 +1,17 @@
 # coding:utf8
 from setuptools import setup, find_packages
 
-from graper import version
+from openget import version
 
 setup(
-    name="graper",
+    name="openget",
     version=version,
     description="A Spider FrameWork",
     long_description=open("README.MD", encoding="utf8").read(),
     long_description_content_type="text/markdown",
     author="Dytttf",
     author_email="dytttf@foxmail.com",
-    url="https://github.com/dytttf/graper",
+    url="https://github.com/dytttf/openget",
     packages=find_packages(),
     install_requires=[
         "gevent",
@@ -34,5 +34,5 @@ setup(
         "Programming Language :: Python :: 3 :: Only",
         "License :: OSI Approved :: BSD License",
     ],
-    keywords=["graper", "spider", "batch-spider"],
+    keywords=["openget", "spider", "batch-spider"],
 )
