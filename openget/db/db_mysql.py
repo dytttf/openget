@@ -461,6 +461,53 @@ class MySQLOpt(object):
         )
         return self.cursor.execute(sql)
 
+    def upsert(
+        self,
+        data: list,
+        *,
+        table_name: str = "",
+        **kwargs,
+    ):
+        """
+            使用upsert语法入库
+        Args:
+            data: 数据
+            table_name: 表名
+            **kwargs:
+
+        Returns:
+
+        """
+        data = copy.deepcopy(data)
+        if not table_name:
+            raise ValueError("table name {}".format(table_name))
+        if not data:
+            return []
+        if not isinstance(data, (list, tuple)):
+            data = [data]
+
+        r = 0
+        for item in data:
+            # 如果不固定 则当给定数据的key顺序不固定时会出现入库错乱
+            sql = "insert into {table_name} ({keys}) values({values}) on duplicate key update {update_data};"
+            # 拼接sql
+            order_data = self.escape_values(item)
+            keys = ",".join(order_data.keys())
+            values = ",".join(order_data.values())
+
+            sql = sql.format(
+                **{
+                    "keys": keys,
+                    "values": values,
+                    "table_name": table_name,
+                    "update_data": ",".join(
+                        [f"{k} = {v}" for k, v in order_data.items()]
+                    ),
+                }
+            )
+            r += self.cursor.execute(sql)
+        return r
+
     def delete(
         self,
         *,
