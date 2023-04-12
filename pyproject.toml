@@ -13,7 +13,7 @@ pymysql = "^1.0.2"
 redis = "^3.5.3"
 better-exceptions = "^0.3.3"
 tqdm = "^4.62.3"
-mysqlclient = "^2.0.3"
+#mysqlclient = "^2.0.3"
 httpx = {extras = ["http2"], version = "^0.20.0"}
 user-agent2 = "^2021.11.1"
 crontab = "^0.23.0"

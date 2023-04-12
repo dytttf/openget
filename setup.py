@@ -16,7 +16,7 @@ setup(
     install_requires=[
         "gevent",
         "pymysql",
-        "mysqlclient",
+        # "mysqlclient",
         "redis>=3.0.0",
         "better-exceptions",
         "tqdm",
