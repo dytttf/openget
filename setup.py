@@ -24,6 +24,7 @@ setup(
         "user-agent2",
         "urllib3",
         "oss2",
+        "python-dotenv",
     ],
     license="BSD",
     # https://pypi.org/classifiers/

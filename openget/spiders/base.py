@@ -101,7 +101,9 @@ class Spider(object):
 
         # Is in docker runing
         self._in_docker = (
-            True if os.getenv("OPENGET_IN_DOCKER", "false").lower() != "false" else False
+            True
+            if os.getenv("OPENGET_IN_DOCKER", "false").lower() != "false"
+            else False
         )
 
         self._stop = False
@@ -357,10 +359,10 @@ class Spider(object):
         raise_exception = None
         #
         spider_break = 0
+        # 减少日志量
+        _last_show_qsize_ts = 0
         # 此处若不捕获异常 可能卡死爬虫
         try:
-            # 减少日志量
-            _last_show_qsize_ts = 0
             if self._break_spider() != 1 and not self._killed:
                 for item in self.start_requests():
                     if isinstance(item, Request):
@@ -406,11 +408,18 @@ class Spider(object):
         except Exception as e:
             raise_exception = e
         while 1:
-            if self.request_queue.qsize() <= 0:
+            qsize = self.request_queue.qsize()
+            if qsize <= 0:
                 # when all thread is stopped, stop self
                 if sum(self._thread_status.values()) == 0:
                     self.event_exit.set()
                     break
+            else:
+                _t = time.time()
+                if _t - _last_show_qsize_ts > 10:
+                    logger.debug("waiting Request count: {} ...".format(qsize))
+                    _last_show_qsize_ts = _t
+            #
             if spider_break:
                 logger.debug(
                     "main thread was stopped, "

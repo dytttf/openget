@@ -617,3 +617,99 @@ class MySQLOpt(object):
         #
         db_opt = MySQLOpt(options, **_kwargs)
         return db_opt
+
+    def create(
+        self,
+        fields: Dict[str, str] = None,
+        unique: List[str] = None,
+        table_name: str = "",
+        type="",
+        exists_ok=True,
+        sql="",
+        **kwargs,
+    ):
+        """
+            create table
+        Args:
+            table_name:
+            sql: DDL
+            **kwargs:
+
+        Returns:
+
+        """
+
+        assert type in ["", "task", "batch_record", "batch_value"]
+
+        # default fields
+        default_fields = [
+            "id",
+            "created_time",
+            "state",
+            "batch_date",
+        ]
+
+        # use translate
+        sql_list = [
+            "begin",
+        ]
+
+        if sql:
+            sql_list.append(sql)
+        else:
+            if not fields:
+                self.logger.warning("no fields")
+                return 0
+            fields_keys = [x.lower() for x in fields]
+
+            if "id" not in fields_keys:
+                fields["id"] = "bigint NOT NULL AUTO_INCREMENT"
+            if "created_time" not in fields_keys:
+                fields[
+                    "created_time"
+                ] = "datetime(0) NOT NULL  DEFAULT CURRENT_TIMESTAMP(0)"
+
+            if type == "task":
+                if "state" not in fields_keys:
+                    fields["state"] = "int DEFAULT 0"
+            elif type == "batch_value":
+                if "batch_date" not in fields_keys:
+                    fields["batch_date"] = "datetime(0) NULL"
+
+            # fields sorted
+            fields = fields.items()
+            fields = (
+                [x for x in fields if x[0].lower() == "id"]
+                + [x for x in fields if x[0].lower() not in default_fields]
+                + [
+                    x
+                    for x in fields
+                    if x[0].lower() in default_fields and x[0].lower() != "id"
+                ]
+            )
+
+            sql = """
+CREATE TABLE {}(
+    {},
+    PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+            """.format(
+                "IF NOT EXISTS {}".format(table_name) if exists_ok else table_name,
+                ",\n    ".join("{} {}".format(k, v) for k, v in fields),
+            )
+            sql_list.append(sql)
+
+            if unique:
+                unique = [x.strip("`") for x in unique]
+                sql = "ALTER TABLE {} ADD UNIQUE INDEX `{}_unique`(`{}`);".format(
+                    table_name, table_name, "`,`".join(unique)
+                )
+                sql_list.append(sql)
+
+        #
+        cursor = self.get_cursor()
+        for sql in sql_list:
+            self.logger.info(sql)
+            cursor.execute(sql)
+        cursor.connection.commit()
+        return 0

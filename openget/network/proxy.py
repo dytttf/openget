@@ -874,7 +874,9 @@ class ProxyPool:
 
 
 #
-default_proxy_pool = ProxyPool(proxy_source_uri=[os.getenv("OPENGET_PROXY_SERVICE_URL")])
+default_proxy_pool = ProxyPool(
+    proxy_source_uri=[os.getenv("OPENGET_PROXY_SERVICE_URL")]
+)
 
 
 if __name__ == "__main__":
