@@ -1,3 +1,3 @@
 from .env import env
 
-version = "0.1.9"
+version = "0.2.0"
