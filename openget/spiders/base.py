@@ -407,6 +407,7 @@ class Spider(object):
                 logger.debug("break spider")
         except Exception as e:
             raise_exception = e
+        # TODO 支持设置等待线程结束的最大时间 超时则KILL不再等待
         while 1:
             qsize = self.request_queue.qsize()
             if qsize <= 0:
