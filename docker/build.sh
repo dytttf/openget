@@ -1,7 +1,10 @@
 #!/bin/bash
 #
+version=$1
+
+#
 mkdir -p resources
 cp ../dist/*.whl resources
 #
-docker rmi openget:0.0.1
-docker build --no-cache -t openget:0.0.1 .
+docker rmi openget:$version
+docker build --no-cache -t openget:$version .
