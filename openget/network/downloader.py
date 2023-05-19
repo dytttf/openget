@@ -494,9 +494,11 @@ class Downloader(object):
         # compatible allow_redirects
         if "allow_redirects" in kwargs:
             kwargs["follow_redirects"] = kwargs.pop("allow_redirects")
+        # 默认True 为了跟 requests 的行为一致
+        kwargs.setdefault("follow_redirects", True)
         #
         stream = kwargs.pop("stream")
-        proxies: Dict = kwargs.pop("proxies", None)
+        proxies: Union[Dict, None] = kwargs.pop("proxies", None)
         verify = kwargs.pop("verify")
         cert = kwargs.pop("cert", None)
         cookies = kwargs.pop("cookies", None)
@@ -534,7 +536,7 @@ class Downloader(object):
             response = session.send(
                 request=request,
                 auth=kwargs.get("auth"),
-                follow_redirects=kwargs.get("follow_redirects"),
+                follow_redirects=kwargs["follow_redirects"],
                 stream=True,
             )
         return response

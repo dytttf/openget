@@ -18,7 +18,7 @@ from typing import Dict
 import redis
 
 from openget import util
-from openget.utils import log
+from openget.utils import log, s3
 
 #
 redis_pool_cache = {}
@@ -238,7 +238,7 @@ class RedisCacheList(object):
         return "{}_{}".format(str(time.time()), str(uuid.uuid1()))
 
     def split(self, key):
-        """"切分"""
+        """ "切分"""
         data_length_limit = int(self._cache_limit * 1.2)
         # 获取一条数据
         _data = self.redis_client.lindex(key, 0)
@@ -480,14 +480,14 @@ class OSSOpt(object):
         if not self.service_line or not self.module:
             raise ValueError("no service_line or module")
 
-        self.file_handler = util.OSSHandler(
+        self.file_handler = s3.OSSHandler(
             AccessKeyId=self.AccessKeyId,
             AccessKeySecret=self.AccessKeySecret,
             endpoint=self.endpoint,
             bucket_name=self.bucket_name,
         )
         if html_cache_bucket:
-            self.html_file_handler = util.OSSHandler(
+            self.html_file_handler = s3.OSSHandler(
                 AccessKeyId=self.AccessKeyId,
                 AccessKeySecret=self.AccessKeySecret,
                 endpoint=self.endpoint,

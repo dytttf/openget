@@ -16,3 +16,6 @@ dist/
 resources/
 *.egg-info/
 _build/
+
+# private
+local_docker
