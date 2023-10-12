@@ -32,3 +32,5 @@ bash build.sh
 - sqlite.db rename
 - use cmd to create spider template
 - 金融许可证 卡死问题处理
+- 环境变量定义优化
+- 新项目创建优化
