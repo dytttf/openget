@@ -464,7 +464,7 @@ class SingleBatchSpider(Spider):
             _cache_group_task_list = []
             task_list = []
             for _, *field in sql_result:
-                # 强转datetime
+                # TODO 为啥强转datetime
                 _task = {
                     _k: "'{}'".format(_v) if isinstance(_v, datetime.date) else _v
                     for _k, _v in zip(self.task_field_list, field)

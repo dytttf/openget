@@ -12,21 +12,25 @@ import json
 import logging
 import time
 from collections import OrderedDict, defaultdict
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Optional
 
 import pymysql
+import threading
+from pymysql import cursors as pymysql_cursors
 
 escape_str = pymysql.converters.escape_str
 
 try:
     import_mysqldb_error = None
     import MySQLdb
+    from MySQLdb import cursors as mysqlclient_cursors
 except ImportError as e:
     MySQLdb = None
     import_mysqldb_error = e
 
 from openget.utils import log
 
+from spider.share import log
 
 MysqlError = (pymysql.OperationalError, pymysql.ProgrammingError)
 
@@ -37,10 +41,30 @@ if MySQLdb:
         pymysql.ProgrammingError,
         MySQLdb.ProgrammingError,
     )
+else:
+    catch_error = (pymysql.OperationalError, pymysql.ProgrammingError)
+
+cursor_types = {
+    "pymysql": {
+        "cursor": pymysql_cursors.Cursor,
+        "dict_cursor": pymysql_cursors.DictCursor,
+        "ss_cursor": pymysql_cursors.SSCursor,
+        "ss_dict_cursor": pymysql_cursors.SSDictCursor,
+    },
+    "mysqlclient": {
+        "cursor": mysqlclient_cursors.Cursor,
+        "dict_cursor": mysqlclient_cursors.DictCursor,
+        "ss_cursor": mysqlclient_cursors.SSCursor,
+        "ss_dict_cursor": mysqlclient_cursors.SSDictCursor,
+    },
+}
+
+mutex = threading.RLock()
 
 
 def get_connection(options: Dict, **kwargs):
     """
+        建立mysql连接
     Args:
         options:
         **kwargs:
@@ -48,6 +72,9 @@ def get_connection(options: Dict, **kwargs):
     Returns:
 
     """
+
+    autocommit = kwargs.pop("autocommit", True)
+
     username = options["username"]
     password = options["password"]
     host = options["host"]
@@ -85,7 +112,7 @@ def get_connection(options: Dict, **kwargs):
         connection.set_character_set(charset)
     else:
         raise ValueError("unknown mysql type: {}".format(options["type"]))
-    connection.autocommit(True)
+    connection.autocommit(autocommit)
     return connection
 
 
@@ -99,11 +126,13 @@ class Cursor(object):
         connection: pymysql.Connection,
         options: Dict,
         logger: logging.Logger = None,
+        cursor_class=None,
         **kwargs,
     ):
-
         self.connection = connection
-        self.cursor = self.connection.cursor()
+        self.cursor = None
+        self.cursor_class = cursor_class
+        self.reconnect(connection)
 
         self.kwargs = kwargs
         self.options = options
@@ -128,7 +157,11 @@ class Cursor(object):
             _r = self.cursor.fetchall()
             if _r:
                 # PolorDB doesn't have this variable
-                old_size = int(_r[0][1])
+                old_size = (
+                    int(_r[0][1])
+                    if not isinstance(_r[0], dict)
+                    else int(_r[0]["Value"])
+                )
                 if old_size < 83_886_080:
                     self.cursor.execute(
                         "set session range_optimizer_max_mem_size=83886080;"
@@ -137,40 +170,81 @@ class Cursor(object):
             self.logger.exception("set range_optimizer_max_mem_size failed")
         return
 
+    def reconnect(self, conn=None):
+        mysql_conn = conn or get_connection(self.options, **self.kwargs)
+        # 判断使用的哪个python库
+        module_str = str(mysql_conn.cursorclass).lower()
+        if "pymysql" in module_str:
+            cursor_class = cursor_types["pymysql"].get(self.cursor_class or "cursor")
+        elif "mysqldb" in module_str:
+            cursor_class = cursor_types["mysqlclient"].get(
+                self.cursor_class or "cursor"
+            )
+        self.cursor = mysql_conn.cursor(cursor_class)
+        self.connection = mysql_conn
+        return self.connection, self.cursor
+
     def execute(self, sql, args=None, retry=0):
         try:
+            mutex.acquire()
+            try:
+                self.conn.ping(reconnect=True)
+            except:
+                pass
             result = self.cursor.execute(sql, args=args)
         except MysqlError as e:
             # catch: timeout error, closed error, ...
-            if retry < 20 and e.args[0] in (
-                2006,
-                2013,
+            if retry < 20 and str(e.args[0]).lower() in (
+                "2006",
+                "2013",
                 "cursor closed",
-                "Cursor closed",
+                "server has gone away",
             ):
-                self.logger.debug("mysql connect error:{}  try reconnect...".format(e))
+                self.logger.debug(f"mysql connect error:{e}  try reconnect({retry})...")
                 time.sleep(retry * 5)
                 # 重连
-                self.connectioin = get_connection(self.options, **self.kwargs)
-                self.cursor = self.connectioin.cursor()
+                self.reconnect()
                 return self.execute(sql, args=args, retry=retry + 1)
             raise e
+        finally:
+            mutex.release()
+        # except RuntimeError as e:
+        #     # 处理 RuntimeError: reentrant call inside <_io.BufferedReader name=8>  gevent引发的错误
+        #     # http://k.sina.com.cn/article_1708729084_65d922fc034002ecf.html
+        #     # https://coveralls.io/builds/5985537/source?filename=src%2Fgevent%2Fsubprocess.py
+        #     # 已知 pymysql==0.7.11 没问题
+        #     # 而 pymysql==0.9.3 会在发现未知异常 比如 RuntimeError: reentrant call inside 强制关闭mysql连接
+        #     # 所以不要升级
+        #     # if "reentrant" in e.args[0] and retry < 3:
+        #     #     self.logger.debug("mysql连接错误:{}".format(e))
+        #     #     return self.execute(sql, args=args, retry=retry + 1)
+        #     raise e
         return result
 
 
 class MySQLOpt(object):
+    # 连接池 共用
     connection_list = {}
 
-    def __init__(self, options: Dict, **kwargs):
+    def __init__(self, options, cursor_class: str = None, **kwargs):
         """
         Args:
-            options:
+            options: mysql connect args
+            cursor_class:
+                cursor, dict_cursor, ss_cursor, ss_dict_cursor
             **kwargs:
-                reuse_connection:
+                autocommit:
+                reuse_connection: reuse connection when copy self
         """
         self.reuse_connection = kwargs.pop("reuse_connection", True)
+        self.cursor_class = cursor_class
+        self.autocommit = kwargs.setdefault("autocommit", True)
+        if self.reuse_connection:
+            print("警告: 在多线程中用同一个mysql连接同时进行插入和查询操作时，插入操作会影响到查询结果...")
 
+        # 额外参数
         self.kwargs = kwargs
+
         self.options = options
         self.key = repr(options)
 
@@ -218,7 +292,13 @@ class MySQLOpt(object):
 
         """
         connection = connection or get_connection(self.options, **self.kwargs)
-        cursor = Cursor(connection, self.options, logger=self.logger, **self.kwargs)
+        cursor = Cursor(
+            connection,
+            self.options,
+            logger=self.logger,
+            cursor_class=self.cursor_class,
+            **self.kwargs,
+        )
         return cursor
 
     @staticmethod
@@ -333,14 +413,15 @@ class MySQLOpt(object):
 
     def add_many(
         self,
-        data: List,
+        data: List[Dict],
         *,
         table_name: str = "",
         batch_size: int = 100,
         group_by_keys: bool = False,
         ignore_duplicate: bool = True,
+        ignore_unknown_column: bool = False,
         show_log=True,
-    ) -> int:
+    ) -> Optional[int, Tuple[int, List]]:
         """
             save data list to database
             !!! not atomicity
@@ -352,10 +433,12 @@ class MySQLOpt(object):
                 if set True, the data will be grouped by keys when is has different keys
                 else, raise an error
             ignore_duplicate:
-            show_log:
+            ignore_unknown_column: 忽略表结构不一致错误 并且返回错误数据
+                if set True, will ignore table struct error and return error data
+                else, raise an error
+            show_log
 
         Returns:
-            Number of affected rows
 
         """
         data = copy.deepcopy(data)
@@ -372,6 +455,8 @@ class MySQLOpt(object):
             raise ValueError("data has different keys")
 
         effect_count = 0
+        error_data = []
+
         for data in data_group_list:
             # keys must has same order, otherwise, save data to database may be  in the confusion;
             first_data_keys = list(data[0].keys())
@@ -404,9 +489,14 @@ class MySQLOpt(object):
                     if show_log:
                         self.logger.debug("insert rows {}".format(rows))
                 except Exception as e:
-                    if "Unknown column" in str(e) and show_log:
-                        self.logger.debug("error data: {}".format(_data[0]))
+                    if "Unknown column" in str(e):
+                        self.logger.debug(f"error data: {_data[0]}")
+                        if ignore_unknown_column:
+                            error_data.extend(_data)
+                            continue
                     raise e
+        if ignore_unknown_column:
+            return effect_count, error_data
         return effect_count
 
     def update(
@@ -569,6 +659,40 @@ class MySQLOpt(object):
         sql = sql.format(**{"table_name": table_name, "where_sql": where_sql})
         return self.cursor.execute(sql)
 
+    def get_table_field_list(self, table_name):
+        """
+        Args:
+            table_name:
+
+        Returns:
+            table's field name list
+        """
+        _sql = f"SELECT * FROM {table_name} LIMIT 0"
+        _cursor = self.get_cursor(connection=self.conn)
+        _cursor.execute(_sql)
+        # 获取表头字段
+        column_names = [column[0] for column in _cursor.description]
+        _cursor.close()
+        # 打印表头字段
+        return column_names
+
+    def query_one(self, sql, *, args=None):
+        """
+            cursor.execute + fetchone
+        Args:
+            sql:
+            args:
+
+        Returns:
+
+        """
+        # create new cursor object to prevent multi query in same time
+        _cursor = self.get_cursor(connection=self.connection)
+        _cursor.execute(sql, args=args)
+        result = _cursor.fetchone()
+        _cursor.close()
+        return result
+
     def query_all(self, sql, *, args=None) -> List[Tuple]:
         """
             cursor.execute + fetchall
@@ -597,6 +721,7 @@ class MySQLOpt(object):
         Returns:
 
         """
+        # if use dict_cursor, will failed
         return [item[0] for item in self.query_all(sql, args=args)]
 
     def close(self):
@@ -621,6 +746,7 @@ class MySQLOpt(object):
             Copy self and modify some properties
         Args:
             protocol:
+                mysql+pymysql   mysql+mysqldb
             **kwargs:
 
         Returns:
@@ -646,6 +772,7 @@ class MySQLOpt(object):
         type="",
         exists_ok=True,
         sql="",
+        encoding: str = "utf8mb4_0900_ai_ci",
         **kwargs,
     ):
         """
@@ -712,10 +839,11 @@ class MySQLOpt(object):
 CREATE TABLE {}(
     {},
     PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE={};
             """.format(
                 "IF NOT EXISTS {}".format(table_name) if exists_ok else table_name,
                 ",\n    ".join("{} {}".format(k, v) for k, v in fields),
+                encoding,
             )
             sql_list.append(sql)
 
