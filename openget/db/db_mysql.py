@@ -30,8 +30,6 @@ except ImportError as e:
 
 from openget.utils import log
 
-from spider.share import log
-
 MysqlError = (pymysql.OperationalError, pymysql.ProgrammingError)
 
 if MySQLdb:
