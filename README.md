@@ -5,6 +5,9 @@ A Spider FrameWork.
 You can install openget by simply doing:
 
     pip install openget
+    pip install git+https://github.com/dytttf/openget.git@main
+    pip install git+https://github.com/dytttf/openget.git@dev
+
     
 ## Usage
 **Very Important Thing**
