@@ -12,7 +12,7 @@ import json
 import logging
 import time
 from collections import OrderedDict, defaultdict
-from typing import List, Tuple, Dict, Optional
+from typing import List, Tuple, Dict, Union
 
 import pymysql
 import threading
@@ -419,7 +419,7 @@ class MySQLOpt(object):
         ignore_duplicate: bool = True,
         ignore_unknown_column: bool = False,
         show_log=True,
-    ) -> Optional[int, Tuple[int, List]]:
+    ) -> Union[int, Tuple[int, List]]:
         """
             save data list to database
             !!! not atomicity
