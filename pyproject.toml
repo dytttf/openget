@@ -7,14 +7,14 @@ license = "BSD"
 
 [tool.poetry.dependencies]
 python = "^3.8"
-urllib3 = "^1.26.7"
-gevent = "^21.8.0"
-pymysql = "^1.0.2"
-redis = "^3.5.3"
+urllib3 = "^2.1.0"
+gevent = "^23.9.1"
+pymysql = "^1.1.0"
+redis = "^5.0.0"
 better-exceptions = "^0.3.3"
 tqdm = "^4.62.3"
 #mysqlclient = "^2.0.3"
-httpx = {extras = ["http2"], version = "^0.20.0"}
+httpx = {extras = ["http2"], version = "^0.25.2"}
 user-agent2 = "^2021.11.1"
 crontab = "^0.23.0"
 oss2 = "^2.15.0"
