@@ -666,7 +666,7 @@ class MySQLOpt(object):
             table's field name list
         """
         _sql = f"SELECT * FROM {table_name} LIMIT 0"
-        _cursor = self.get_cursor(connection=self.conn)
+        _cursor = self.get_cursor(connection=self.connection)
         _cursor.execute(_sql)
         # 获取表头字段
         column_names = [column[0] for column in _cursor.description]
