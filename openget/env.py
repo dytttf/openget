@@ -28,7 +28,7 @@ env = {
     "OPENGET_IN_DOCKER": "false",
     # logging
     # forbidden better_exceptions
-    "OPENGET_FORBIDDED_BETTER_EXCEPTIONS": None,
+    "OPENGET_FORBIDDED_BETTER_EXCEPTIONS": "false",
 }
 
 

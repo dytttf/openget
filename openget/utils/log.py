@@ -66,7 +66,7 @@ def get_logger(
 
     #
     formatter = logging.Formatter(log_format)
-    if os.getenv("OPENGET_FORBIDDED_BETTER_EXCEPTIONS", None) is None:
+    if os.getenv("OPENGET_FORBIDDED_BETTER_EXCEPTIONS", "false").lower() != "true":
         formatter.formatException = _format_exception
 
     stream_handler = logging.StreamHandler(stream=sys.stdout)

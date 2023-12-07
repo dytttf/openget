@@ -18,7 +18,9 @@ from openget.spiders import *
 
 
 ## About Environment Variable
-> ~/.openget/.env < $(pwd)/.env
+### 优先级
+1. $(pwd)/.env
+2. ~/.openget/.env
 
 
 ## docker build
