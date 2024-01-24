@@ -221,7 +221,7 @@ class Cursor(object):
 
 
 class MySQLOpt(object):
-    # 连接池 共用
+    # connection pool
     connection_list = {}
 
     def __init__(self, options, cursor_class: str = None, **kwargs):
@@ -347,14 +347,6 @@ class MySQLOpt(object):
 
     @staticmethod
     def group_data_by_keys(data: List[Dict]) -> List[List]:
-        """
-
-        Args:
-            data:
-
-        Returns:
-
-        """
         data = copy.deepcopy(data)
         group_data_dict = defaultdict(list)
         for item in data:
@@ -372,7 +364,7 @@ class MySQLOpt(object):
         ignore_duplicate: bool = True,
     ) -> int:
         """
-            save data to database
+            save one data to database
         Args:
             data:
             table_name:
