@@ -5,7 +5,11 @@ import sys
 import platform
 import tempfile
 import logging.handlers
-from better_exceptions import format_exception
+
+try:
+    from better_exceptions import format_exception
+except Exception:
+    format_exception = None
 
 
 # TODO support env
@@ -66,7 +70,10 @@ def get_logger(
 
     #
     formatter = logging.Formatter(log_format)
-    if os.getenv("OPENGET_FORBIDDED_BETTER_EXCEPTIONS", "false").lower() != "true":
+    if (
+        os.getenv("OPENGET_FORBIDDED_BETTER_EXCEPTIONS", "false").lower() != "true"
+        and format_exception
+    ):
         formatter.formatException = _format_exception
 
     stream_handler = logging.StreamHandler(stream=sys.stdout)
