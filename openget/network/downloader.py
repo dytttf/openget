@@ -39,9 +39,7 @@ class UserAgentPool(util.RequestArgsPool):
     #
     dev_types = [pc, mobile, win, mac, linux, android, ios]
 
-    def __init__(
-        self, types=None, with_random_ua=True, ua_local_dir: str = "", **kwargs
-    ):
+    def __init__(self, types=None, with_random_ua=True, ua_local_dir: str = "", **kwargs):
         """
         Args:
             types:
@@ -68,9 +66,7 @@ class UserAgentPool(util.RequestArgsPool):
         self.user_agents = []
         self.init_flag = 0
         # ua文件目录
-        self.ua_local_dir = ua_local_dir or os.path.join(
-            os.path.expanduser("~"), ".openget", "ua"
-        )
+        self.ua_local_dir = ua_local_dir or os.path.join(os.path.expanduser("~"), ".openget", "ua")
         self.__types = []
 
     def init(self):
@@ -223,9 +219,7 @@ class LimitRedisCookiePool(util.RequestArgsPool):
         if self.with_random:
             _limit += random.randint(-self.with_random, self.with_random)
         for i in range(retry):
-            cookie_list = self.redis_conn.zrangebyscore(
-                self.cookie_key, "-inf", time.time() - _limit
-            )
+            cookie_list = self.redis_conn.zrangebyscore(self.cookie_key, "-inf", time.time() - _limit)
             if not cookie_list:
                 time.sleep(1)
                 continue
@@ -436,11 +430,7 @@ class Downloader(object):
         headers = kwargs.pop("headers", {})
         if headers:
             default_headers.update(headers)
-        kwargs["headers"] = (
-            util.format_headers(default_headers)
-            if self.format_headers
-            else default_headers
-        )
+        kwargs["headers"] = util.format_headers(default_headers) if self.format_headers else default_headers
 
         #
         if "verify" not in kwargs:
@@ -463,13 +453,7 @@ class Downloader(object):
         if "cookies" not in kwargs:
             cookies_str = kwargs["headers"].get("Cookie", "")
             cookies_str += ";" + (_session or self.session).headers.get("Cookie", "")
-            kwargs["cookies"] = dict(
-                [
-                    x.strip().split("=", maxsplit=1)
-                    for x in cookies_str.split(";")
-                    if x.strip()
-                ]
-            )
+            kwargs["cookies"] = dict([x.strip().split("=", maxsplit=1) for x in cookies_str.split(";") if x.strip()])
             kwargs["cookies"].update(_cookies)
         if ("data" in kwargs or "json" in kwargs) and method == "GET":
             method = "POST"
@@ -504,12 +488,8 @@ class Downloader(object):
         cookies = kwargs.pop("cookies", None)
         if proxies or verify is not None or cert is not None or cookies is not None:
             if proxies is not None:
-                proxies = {
-                    k if "://" in k else f"{k}://": v for k, v in proxies.items()
-                }
-            session = self.make_httpx_client(
-                proxies=proxies, verify=verify, cert=cert, cookies=cookies
-            )
+                proxies = {k if "://" in k else f"{k}://": v for k, v in proxies.items()}
+            session = self.make_httpx_client(proxies=proxies, verify=verify, cert=cert, cookies=cookies)
         else:
             if session is None:
                 session = self.session if self.use_session else httpx
@@ -583,22 +563,19 @@ class Downloader(object):
                 response = self._download(request, **kwargs)
                 if response is not None:
                     if not response and self.show_fail_log:
-                        logger.error(
-                            "download failed: {} {}".format(
-                                response.status_code, response.url
-                            )
-                        )
+                        logger.error("download failed: {} {}".format(response.status_code, response.url))
                 break
             except Exception as e:
+                exception = e
                 if not is_converted:
-                    exception = e
                     request = self.convert_http_protocol(request)
                     is_converted = True
                 else:
                     if self.show_error_log:
                         logger.exception(exception, exc_info=exception)
                     else:
-                        logger.error("download exception: {}".format(exception))
+                        logger.error(f"download exception: {exception}")
+                    raise e
         if response is not None:
             response.openget_exception = exception
         return response
