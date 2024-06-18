@@ -14,7 +14,7 @@ redis = "^5.0.0"
 better-exceptions = "^0.3.3"
 tqdm = "^4.62.3"
 #mysqlclient = "^2.0.3"
-httpx = {extras = ["http2"], version = "^0.25.2"}
+httpx = { extras = ["http2"], version = "^0.25.2" }
 user-agent2 = "^2021.11.1"
 crontab = "^0.23.0"
 oss2 = "^2.15.0"
@@ -36,3 +36,6 @@ build-backend = "poetry.core.masonry.api"
 name = "aliyun"
 default = true
 url = "https://mirrors.aliyun.com/pypi/simple/"
+
+[tool.black]
+line-length = 120
