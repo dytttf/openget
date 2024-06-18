@@ -275,6 +275,7 @@ class Downloader(object):
         http2: bool = False,
         use_default_headers: bool = True,
         format_headers: bool = True,
+        enable_convert_http_protocol: bool = True,
         **kwargs,
     ):
         """
@@ -293,6 +294,7 @@ class Downloader(object):
             http2: use http/2
             use_default_headers:
             format_headers:
+            enable_convert_http_protocol: default True, swapping the HTTP and HTTPS protocols after download fail and try again
             **kwargs:
         """
         super().__init__()
@@ -312,6 +314,7 @@ class Downloader(object):
         self.stream = stream
         self.use_default_headers = use_default_headers
         self.format_headers = format_headers
+        self.enable_convert_http_protocol = enable_convert_http_protocol
         self.kwargs = kwargs
 
         self.session = self.make_httpx_client()
@@ -557,7 +560,7 @@ class Downloader(object):
     def download(self, request, **kwargs) -> httpx.Response:
         response = None
         exception = None
-        is_converted = False
+        is_converted = not self.enable_convert_http_protocol
         for i in range(2):
             try:
                 response = self._download(request, **kwargs)
@@ -575,9 +578,10 @@ class Downloader(object):
                         logger.exception(exception, exc_info=exception)
                     else:
                         logger.error(f"download exception: {exception}")
-                    raise e
         if response is not None:
             response.openget_exception = exception
+        else:
+            raise exception
         return response
 
 
@@ -587,9 +591,10 @@ if __name__ == "__main__":
     downloader = Downloader(show_error_log=True, proxy_enable=False)
     resp = downloader.download(
         "http://httpbin.org/anything",
-        proxies={"http": "http://10.10.91.254:8364"},
+        proxies={"http": "http://10.10.91.254:83641", "https": "http://10.10.91.254:83641"},
         headers={"Accept-Encoding": ""},
         stream=True,
+        timeout=5,
     )
     print(type(resp))
     print(resp)

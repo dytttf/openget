@@ -62,9 +62,7 @@ class Spider(object):
             sqlite_db_name = kwargs.get("sqlite_file_name", "sqlite.db")
             sqlite_db_path = kwargs.get(
                 "sqlite_file_path",
-                path.join(
-                    path.dirname(path.join(os.getcwd(), sys.argv[0])), sqlite_db_name
-                ),
+                path.join(path.dirname(path.join(os.getcwd(), sys.argv[0])), sqlite_db_name),
             )
             self.db = DB.create("sqlite://{}".format(sqlite_db_path))
             logger.info("use sqlite db in path {}".format(sqlite_db_path))
@@ -100,11 +98,7 @@ class Spider(object):
         self._close_reason = ""
 
         # Is in docker runing
-        self._in_docker = (
-            True
-            if os.getenv("OPENGET_IN_DOCKER", "false").lower() != "false"
-            else False
-        )
+        self._in_docker = True if os.getenv("OPENGET_IN_DOCKER", "false").lower() != "false" else False
 
         self._stop = False
 
@@ -175,9 +169,7 @@ class Spider(object):
         """
         if self.break_spider_check_interval <= 0:
             return self.break_spider()
-        if (
-            time.time() - self._last_check_break_spider_ts
-        ) > self.break_spider_check_interval:
+        if (time.time() - self._last_check_break_spider_ts) > self.break_spider_check_interval:
             self._last_check_break_spider_ts = time.time()
             return self.break_spider()
         return False
@@ -205,9 +197,7 @@ class Spider(object):
             return 0
         return memory_info["container"]["memory_utilization"]
 
-    def download(
-        self, request: Request, downloader: downloader.Downloader = None, **kwargs
-    ):
+    def download(self, request: Request, downloader: downloader.Downloader = None, **kwargs):
         """
 
         Args:
@@ -237,9 +227,7 @@ class Spider(object):
                         put_retry(request_obj)
                     #
                     logger.warn(
-                        "retry times over limit {}, task delete: {}".format(
-                            self.max_request_retry, request_obj
-                        )
+                        "retry times over limit {}, task delete: {}".format(self.max_request_retry, request_obj)
                     )
                     self.request_queue.task_done()
                     continue
@@ -255,6 +243,8 @@ class Spider(object):
                 continue
 
             _request = request_obj.request
+            _response = None
+            _response_exception = None
             if _request:
                 try:
                     _response = self.download(
@@ -263,9 +253,8 @@ class Spider(object):
                     )
                 except Exception as e:
                     logger.exception(e)
-                    _response = None
-            else:
-                _response = None
+                    _response_exception = e
+
             # 记录下载次数
             request_obj.retry += 1
 
@@ -273,7 +262,7 @@ class Spider(object):
             if isinstance(_response, Response):
                 response = _response
             else:
-                response = Response(_response, request_obj)
+                response = Response(_response, request_obj, exception=_response_exception)
 
             try:
                 _callback = request_obj.callback
