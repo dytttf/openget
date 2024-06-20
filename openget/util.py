@@ -9,6 +9,7 @@ import re
 import sys
 import time
 import zlib
+import uuid
 import platform
 import tempfile
 from typing import Callable, List, Tuple, Optional, Dict, AnyStr, Generator
@@ -141,6 +142,7 @@ class RedisLock(object):
         redis_uri=None,
         connection_pool=None,
         auto_release=True,
+        ensure_timeout=True,
         logger=None,
     ):
         """
@@ -160,6 +162,9 @@ class RedisLock(object):
             connection_pool:
             auto_release:
                 whether release lock when exit with statement.
+            ensure_timeout: ensure key expires not exceed timeout, default True.
+                if False, ttl can be modified to exceed the timeout.
+                if True, when get lock, the ttl is checked to ensure that it does not exceed timeout.
             logger:
 
         Usage:
@@ -174,9 +179,7 @@ class RedisLock(object):
         if connection_pool:
             self.redis_client = redis.StrictRedis(connection_pool=connection_pool)
         else:
-            self.redis_client = self.get_redis_client(
-                redis_uri or setting.default_redis_uri
-            )
+            self.redis_client = self.get_redis_client(redis_uri or setting.default_redis_uri)
 
         self.logger = logger or log.get_logger(__file__)
 
@@ -190,14 +193,13 @@ class RedisLock(object):
         if self.break_wait is None:
             self.break_wait = lambda: False
         if not callable(self.break_wait):
-            raise TypeError(
-                "break_wait must be function or None, but got {}".format(
-                    type(self.break_wait)
-                )
-            )
+            raise TypeError("break_wait must be function or None, but got {}".format(type(self.break_wait)))
 
         self.locked = False
         self.auto_release = auto_release
+        self.ensure_timeout = ensure_timeout
+
+        self.uuid = str(uuid.uuid4())
 
     def __enter__(self):
         if not self.locked:
@@ -209,33 +211,30 @@ class RedisLock(object):
             self.release()
 
     def __repr__(self):
-        return "<RedisLock: {} index: {}>".format(self.lock_key, self.redis_index)
+        return f"<RedisLock: {self.lock_key} index: {self.redis_index}>"
 
     @staticmethod
     def get_redis_client(redis_uri):
         if redis_uri not in global_redis_lock_connection_pool_cache:
-            connection_pool = redis.BlockingConnectionPool.from_url(
-                redis_uri, max_connections=100, timeout=60
-            )
+            connection_pool = redis.BlockingConnectionPool.from_url(redis_uri, max_connections=100, timeout=60)
             global_redis_lock_connection_pool_cache[redis_uri] = connection_pool
-        return redis.Redis(
-            connection_pool=global_redis_lock_connection_pool_cache[redis_uri]
-        )
+        return redis.Redis(connection_pool=global_redis_lock_connection_pool_cache[redis_uri])
 
     def acquire(self):
         start = time.time()
-        self.logger.debug("Prepare for acquire lock {} ...".format(self))
+        self.logger.debug(f"Prepare for acquire lock {self} ...")
         while 1:
-            #
-            if self.redis_client.setnx(self.lock_key, time.time()):
-                self.redis_client.expire(self.lock_key, self.timeout)
+            if self.redis_client.set(self.lock_key, self.uuid, ex=self.timeout, nx=True):
                 self.locked = True
-                self.logger.debug("acquire lock successfully {}".format(self))
+                self.logger.debug(f"acquire lock successfully {self}")
                 break
             else:
                 _ttl = self.redis_client.ttl(self.lock_key)
-                if _ttl < 0:
+                if _ttl == -1:
+                    self.logger.debug(f"fix lock loss expire: {self} {_ttl}")
                     self.redis_client.delete(self.lock_key)
+                elif _ttl == -2:
+                    pass
                 elif _ttl > self.timeout:
                     self.redis_client.expire(self.lock_key, self.timeout)
 
@@ -247,17 +246,13 @@ class RedisLock(object):
             if self.break_wait():
                 self.logger.debug("break_wait take effect")
                 break
-            self.logger.debug(
-                "Waiting for acquire lock {} was been {} seconds".format(
-                    self, time.time() - start
-                )
-            )
+            self.logger.debug(f"Waiting for acquire lock {self} was been {time.time() - start} seconds")
             if self.wait_timeout > 10:
                 time.sleep(5)
             else:
                 time.sleep(1)
         if not self.locked:
-            self.logger.debug("Acquire lock fail {}".format(self))
+            self.logger.debug(f"Acquire lock fail {self}")
         return
 
     def release(self, force=False):
@@ -270,7 +265,13 @@ class RedisLock(object):
 
         """
         if self.locked or force:
-            self.redis_client.delete(self.lock_key)
+            lock_uuid = self.redis_client.get(self.lock_key)
+            if isinstance(lock_uuid, bytes):
+                lock_uuid = lock_uuid.decode("utf-8")
+            if lock_uuid == self.uuid:
+                self.redis_client.delete(self.lock_key)
+            else:
+                self.logger.error(f"release failed: not my lock, {lock_uuid} != {self.uuid}")
             self.locked = False
         return
 
@@ -497,13 +498,7 @@ def local_datetime(data: AnyStr) -> Optional[datetime.datetime]:
         logger.error("local_datetime() error: data is not utf8 or unicode : %s" % data)
 
     # 归一化
-    data = (
-        data.replace("年", "-")
-        .replace("月", "-")
-        .replace("日", " ")
-        .replace("/", "-")
-        .strip()
-    )
+    data = data.replace("年", "-").replace("月", "-").replace("日", " ").replace("/", "-").strip()
     data = re.sub("\s+", " ", data)
 
     year = dt.year
@@ -570,9 +565,7 @@ def local_datetime(data: AnyStr) -> Optional[datetime.datetime]:
                 del_days = int(flag.split("-")[1])
                 _date = dt.date() - datetime.timedelta(days=del_days)
                 _date = _date.strftime("%Y-%m-%d")
-                dt = datetime.datetime.strptime(
-                    "%s %s" % (_date, m.group(1)), dt_format
-                )
+                dt = datetime.datetime.strptime("%s %s" % (_date, m.group(1)), dt_format)
             return dt
     else:
         logger.error("Unknown datetime format: %s" % data)
@@ -614,12 +607,8 @@ class ContainerInfo(object):
         with os.popen("cat /proc/meminfo") as f:
             meminfo = dict([x.strip().split(":") for x in f.readlines() if x.strip()])
         info["total_bytes"] = int(meminfo["MemTotal"].replace("kB", "").strip()) * 1024
-        info["available_bytes"] = (
-            int(meminfo["MemAvailable"].replace("kB", "").strip()) * 1024
-        )
-        info["memory_utilization"] = 1.0 - (
-            info["available_bytes"] * 1.0 / info["total_bytes"]
-        )
+        info["available_bytes"] = int(meminfo["MemAvailable"].replace("kB", "").strip()) * 1024
+        info["memory_utilization"] = 1.0 - (info["available_bytes"] * 1.0 / info["total_bytes"])
         return info
 
     @classmethod
@@ -627,9 +616,7 @@ class ContainerInfo(object):
         info = {}
         info["limit_in_bytes"] = int(cls._get_cgroup_mem_info("memory.limit_in_bytes"))
         info["usage_in_bytes"] = int(cls._get_cgroup_mem_info("memory.usage_in_bytes"))
-        info["memory_utilization"] = (
-            info["usage_in_bytes"] * 1.0 / info["limit_in_bytes"]
-        )
+        info["memory_utilization"] = info["usage_in_bytes"] * 1.0 / info["limit_in_bytes"]
         return info
 
     @classmethod
@@ -680,9 +667,7 @@ class UrlHandler(object):
         errors="replace",
     ):
         parsed_result = {}
-        pairs = cls.parse_qsl(
-            qs, keep_blank_values, strict_parsing, encoding=encoding, errors=errors
-        )
+        pairs = cls.parse_qsl(qs, keep_blank_values, strict_parsing, encoding=encoding, errors=errors)
         for name, value in pairs:
             if name in parsed_result:
                 parsed_result[name].append(value)
