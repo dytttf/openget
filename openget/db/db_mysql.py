@@ -39,8 +39,6 @@ if MySQLdb:
         pymysql.ProgrammingError,
         MySQLdb.ProgrammingError,
     )
-else:
-    catch_error = (pymysql.OperationalError, pymysql.ProgrammingError)
 
 cursor_types = {
     "pymysql": {
@@ -49,13 +47,18 @@ cursor_types = {
         "ss_cursor": pymysql_cursors.SSCursor,
         "ss_dict_cursor": pymysql_cursors.SSDictCursor,
     },
-    "mysqlclient": {
-        "cursor": mysqlclient_cursors.Cursor,
-        "dict_cursor": mysqlclient_cursors.DictCursor,
-        "ss_cursor": mysqlclient_cursors.SSCursor,
-        "ss_dict_cursor": mysqlclient_cursors.SSDictCursor,
-    },
 }
+if MySQLdb:
+    cursor_types.update(
+        {
+            "mysqlclient": {
+                "cursor": mysqlclient_cursors.Cursor,
+                "dict_cursor": mysqlclient_cursors.DictCursor,
+                "ss_cursor": mysqlclient_cursors.SSCursor,
+                "ss_dict_cursor": mysqlclient_cursors.SSDictCursor,
+            },
+        }
+    )
 
 mutex = threading.RLock()
 
@@ -155,15 +158,9 @@ class Cursor(object):
             _r = self.cursor.fetchall()
             if _r:
                 # PolorDB doesn't have this variable
-                old_size = (
-                    int(_r[0][1])
-                    if not isinstance(_r[0], dict)
-                    else int(_r[0]["Value"])
-                )
+                old_size = int(_r[0][1]) if not isinstance(_r[0], dict) else int(_r[0]["Value"])
                 if old_size < 83_886_080:
-                    self.cursor.execute(
-                        "set session range_optimizer_max_mem_size=83886080;"
-                    )
+                    self.cursor.execute("set session range_optimizer_max_mem_size=83886080;")
         except Exception:
             self.logger.exception("set range_optimizer_max_mem_size failed")
         return
@@ -175,9 +172,7 @@ class Cursor(object):
         if "pymysql" in module_str:
             cursor_class = cursor_types["pymysql"].get(self.cursor_class or "cursor")
         elif "mysqldb" in module_str:
-            cursor_class = cursor_types["mysqlclient"].get(
-                self.cursor_class or "cursor"
-            )
+            cursor_class = cursor_types["mysqlclient"].get(self.cursor_class or "cursor")
         self.cursor = mysql_conn.cursor(cursor_class)
         self.connection = mysql_conn
         return self.connection, self.cursor
@@ -246,9 +241,7 @@ class MySQLOpt(object):
         self.options = options
         self.key = repr(options)
 
-        self.logger: logging.Logger = self.kwargs.pop("logger", None) or log.get_logger(
-            __file__
-        )
+        self.logger: logging.Logger = self.kwargs.pop("logger", None) or log.get_logger(__file__)
 
         self.table_name = ""
 
@@ -270,10 +263,7 @@ class MySQLOpt(object):
     @property
     def cursor(self):
         if not self._cursor:
-            if (
-                not self.reuse_connection
-                or self.key not in MySQLOpt.connection_list.keys()
-            ):
+            if not self.reuse_connection or self.key not in MySQLOpt.connection_list.keys():
                 self._cursor = self.get_cursor()
                 if self.reuse_connection:
                     MySQLOpt.connection_list[self.key] = self._cursor
@@ -304,9 +294,7 @@ class MySQLOpt(object):
         return escape_str(*args, **kwargs)
 
     @staticmethod
-    def escape_values(
-        data: Dict, sort_keys: List = None, strip: bool = True
-    ) -> OrderedDict:
+    def escape_values(data: Dict, sort_keys: List = None, strip: bool = True) -> OrderedDict:
         """
             Convert data to mysql support types.
 
@@ -601,9 +589,7 @@ class MySQLOpt(object):
                     "keys": keys,
                     "values": values,
                     "table_name": table_name,
-                    "update_data": ",".join(
-                        [f"{k} = {v}" for k, v in order_data.items()]
-                    ),
+                    "update_data": ",".join([f"{k} = {v}" for k, v in order_data.items()]),
                 }
             )
             yield sql
@@ -802,9 +788,7 @@ class MySQLOpt(object):
             if "id" not in fields_keys:
                 fields["id"] = "bigint NOT NULL AUTO_INCREMENT"
             if "created_time" not in fields_keys:
-                fields[
-                    "created_time"
-                ] = "datetime(0) NOT NULL  DEFAULT CURRENT_TIMESTAMP(0)"
+                fields["created_time"] = "datetime(0) NOT NULL  DEFAULT CURRENT_TIMESTAMP(0)"
 
             if type == "task":
                 if "state" not in fields_keys:
@@ -818,11 +802,7 @@ class MySQLOpt(object):
             fields = (
                 [x for x in fields if x[0].lower() == "id"]
                 + [x for x in fields if x[0].lower() not in default_fields]
-                + [
-                    x
-                    for x in fields
-                    if x[0].lower() in default_fields and x[0].lower() != "id"
-                ]
+                + [x for x in fields if x[0].lower() in default_fields and x[0].lower() != "id"]
             )
 
             sql = """
