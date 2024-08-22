@@ -534,6 +534,8 @@ class MySQLOpt(object):
         data: list,
         *,
         table_name: str = "",
+        batch_size=100,
+        group_by_keys=False,
         **kwargs,
     ):
         """
@@ -541,13 +543,17 @@ class MySQLOpt(object):
         Args:
             data: 数据
             table_name: 表名
+            batch_size: 批次数据量
+            group_by_keys: 是否按照数据中的key进行分组
             **kwargs:
 
         Returns:
 
         """
         r = 0
-        for sql in self.get_upsert_sql(data, table_name=table_name, **kwargs):
+        for sql in self.get_upsert_sql(
+            data, table_name=table_name, batch_size=batch_size, group_by_keys=group_by_keys, **kwargs
+        ):
             r += self.cursor.execute(sql)
         return r
 
@@ -556,6 +562,8 @@ class MySQLOpt(object):
         data: list,
         *,
         table_name: str = "",
+        batch_size: int = 100,
+        group_by_keys=False,
         **kwargs,
     ):
         """
@@ -563,6 +571,8 @@ class MySQLOpt(object):
         Args:
             data: 数据
             table_name: 表名
+            batch_size: 批次数据量
+            group_by_keys: 是否按照数据中的key进行分组
             **kwargs:
 
         Returns:
@@ -570,29 +580,45 @@ class MySQLOpt(object):
         """
         data = copy.deepcopy(data)
         if not table_name:
-            raise ValueError("table name {}".format(table_name))
+            raise ValueError(f"table name is empty: {table_name}")
         if not data:
             return []
+        assert batch_size > 0, "batch_size must be greater than 0"
         if not isinstance(data, (list, tuple)):
             data = [data]
+        # 数据分组 按照keys是否相同
+        # 防止由于key个数不一致导致的出错
+        data_group_list = self.group_data_by_keys(data)
+        if not group_by_keys:
+            assert len(data_group_list) == 1, "数据结构不一致"
 
-        for item in data:
+        for data in data_group_list:
             # 如果不固定 则当给定数据的key顺序不固定时会出现入库错乱
-            sql = "insert into {table_name} ({keys}) values({values}) on duplicate key update {update_data};"
-            # 拼接sql
-            order_data = self.escape_values(item)
-            keys = ",".join(order_data.keys())
-            values = ",".join(order_data.values())
+            first_data_keys = list(data[0].keys())
+            while data:
+                sql = "insert into {table_name} ({keys}) values {values} on duplicate key update {update_data};"
+                # 拼接sql
+                # 固定keys 取第一个数据
+                keys = []
+                values = []
+                for idx, item in enumerate(data[:batch_size]):
+                    order_data = self.escape_values(item, sort_keys=first_data_keys)
+                    if idx == 0:
+                        keys = list(order_data.keys())
 
-            sql = sql.format(
-                **{
-                    "keys": keys,
-                    "values": values,
-                    "table_name": table_name,
-                    "update_data": ",".join([f"{k} = {v}" for k, v in order_data.items()]),
-                }
-            )
-            yield sql
+                    values.append("({})".format(",".join([order_data.get(k) for k in keys])))
+                values = ",".join(values)
+
+                sql = sql.format(
+                    **{
+                        "keys": ",".join(keys),
+                        "values": values,
+                        "table_name": table_name,
+                        "update_data": ",".join([f"{k} = values({k})" for k in keys]),
+                    }
+                )
+                yield sql
+                data = data[batch_size:]
 
     def delete(
         self,
