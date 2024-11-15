@@ -30,15 +30,11 @@ except ImportError as e:
 
 from openget.utils import log
 
-MysqlError = (pymysql.OperationalError, pymysql.ProgrammingError)
+# 捕获非编程或语法错误导致的异常
+MysqlError = (pymysql.InterfaceError, pymysql.OperationalError, pymysql.InternalError)
 
 if MySQLdb:
-    MysqlError = (
-        pymysql.OperationalError,
-        MySQLdb.OperationalError,
-        pymysql.ProgrammingError,
-        MySQLdb.ProgrammingError,
-    )
+    MysqlError = MysqlError + (MySQLdb.InterfaceError, MySQLdb.OperationalError, MySQLdb.InternalError)
 
 cursor_types = {
     "pymysql": {
@@ -69,9 +65,6 @@ def get_connection(options: Dict, **kwargs):
     Args:
         options:
         **kwargs:
-
-    Returns:
-
     """
 
     autocommit = kwargs.pop("autocommit", True)
@@ -112,7 +105,7 @@ def get_connection(options: Dict, **kwargs):
         )
         connection.set_character_set(charset)
     else:
-        raise ValueError("unknown mysql type: {}".format(options["type"]))
+        raise ValueError(f"unknown mysql type: {options['type']}")
     connection.autocommit(autocommit)
     return connection
 
@@ -147,10 +140,7 @@ class Cursor(object):
 
     def _init(self):
         """
-            1、at the session level, set range_optimizer_max_mem_size=83886080 to optimize update performance, the default is 8388608(8M).
-
-        Returns:
-
+        1、at the session level, set range_optimizer_max_mem_size=83886080 to optimize update performance, the default is 8388608(8M).
         """
         try:
             sql = "show variables like '%range_optimizer_max_mem_size%';"
@@ -181,19 +171,14 @@ class Cursor(object):
         try:
             mutex.acquire()
             try:
-                self.conn.ping(reconnect=True)
+                self.connection.ping(reconnect=True)
             except:
                 pass
             result = self.cursor.execute(sql, args=args)
         except MysqlError as e:
             # catch: timeout error, closed error, ...
-            if retry < 20 and str(e.args[0]).lower() in (
-                "2006",
-                "2013",
-                "cursor closed",
-                "server has gone away",
-            ):
-                self.logger.debug(f"mysql connect error:{e}  try reconnect({retry})...")
+            if retry < 3:
+                self.logger.debug(f"MySQL Connect error: {type(e)} {e} try reconnect({retry})...")
                 time.sleep(retry * 5)
                 # 重连
                 self.reconnect()
@@ -233,7 +218,7 @@ class MySQLOpt(object):
         self.cursor_class = cursor_class
         self.autocommit = kwargs.setdefault("autocommit", True)
         if self.reuse_connection:
-            print("警告: 在多线程中用同一个mysql连接同时进行插入和查询操作时，插入操作会影响到查询结果...")
+            print("注意: 在多线程中用同一个mysql连接同时进行插入和查询操作时，插入操作会影响到查询结果...")
 
         # 额外参数
         self.kwargs = kwargs
