@@ -136,7 +136,7 @@ class RedisLock(object):
     def __init__(
         self,
         key,
-        timeout=300,
+        timeout: int = 300,
         wait_timeout=8 * 3600,
         break_wait=None,
         redis_uri=None,
@@ -184,16 +184,16 @@ class RedisLock(object):
         self.logger = logger or log.get_logger(__file__)
 
         self.lock_key = "redis_lock:{}".format(key)
-        #
+        # 锁超时时间
         self.timeout = timeout
-        #
+        # 等待加锁时间
         self.wait_timeout = wait_timeout
-        #
+        # wait中断函数
         self.break_wait = break_wait
         if self.break_wait is None:
             self.break_wait = lambda: False
         if not callable(self.break_wait):
-            raise TypeError("break_wait must be function or None, but got {}".format(type(self.break_wait)))
+            raise TypeError(f"break_wait must be function or None, but got {type(self.break_wait)}")
 
         self.locked = False
         self.auto_release = auto_release
@@ -229,13 +229,15 @@ class RedisLock(object):
                 self.logger.debug(f"acquire lock successfully {self}")
                 break
             else:
+                # 修复bug：当加锁时被干掉 导致没有设置expire成功 锁无限存在
                 _ttl = self.redis_client.ttl(self.lock_key)
                 if _ttl == -1:
                     self.logger.debug(f"fix lock loss expire: {self} {_ttl}")
                     self.redis_client.delete(self.lock_key)
                 elif _ttl == -2:
+                    # 锁已被释放
                     pass
-                elif _ttl > self.timeout:
+                elif _ttl > self.timeout and self.ensure_timeout:
                     self.redis_client.expire(self.lock_key, self.timeout)
 
             if self.wait_timeout > 0:
