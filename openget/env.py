@@ -6,7 +6,7 @@ Get all environment variable
 import sys
 import os
 from os import path
-from dotenv import load_dotenv
+from dotenv import load_dotenv, dotenv_values
 
 
 # All env defines
@@ -34,13 +34,16 @@ env = {
 
 # from ~/.openget/.env
 GLOBAL_ENV_FILE = path.join(path.expanduser("~"), ".openget/.env")
+global_env = {}
 if GLOBAL_ENV_FILE:
+    global_env = dotenv_values(GLOBAL_ENV_FILE)
     load_dotenv(GLOBAL_ENV_FILE)
 
 # from $(pwd)/.env
+LOCAL_ENV_FILE = ""
+local_env = {}
 if sys.argv[0]:
-    LOCAL_ENV_FILE = path.join(
-        path.dirname(path.join(os.getcwd(), sys.argv[0])), ".env"
-    )
+    LOCAL_ENV_FILE = path.join(path.dirname(path.join(os.getcwd(), sys.argv[0])), ".env")
     if LOCAL_ENV_FILE:
+        local_env = dotenv_values(LOCAL_ENV_FILE)
         load_dotenv(LOCAL_ENV_FILE, override=True)

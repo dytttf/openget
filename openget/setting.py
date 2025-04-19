@@ -11,11 +11,7 @@ OPENGET_ENV = getenv("OPENGET_ENV", "DEV")
 if 1:
 
     def get_mysql_uri(x, protocol="mysql"):
-        return (
-            "{protocol}://{user}:{passwd}@{host}:{port}/{db}?charset={charset}".format(
-                protocol=protocol, **x
-            )
-        )
+        return "{protocol}://{user}:{passwd}@{host}:{port}/{db}?charset={charset}".format(protocol=protocol, **x)
 
     # mysql config
     default_mysql_setting_dict = {

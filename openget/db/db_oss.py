@@ -75,9 +75,7 @@ class RedisCacheList(object):
         self.data_cache_key_count_limit = data_cache_key_count_limit
         self.redis_client = self.get_redis_conn()
         if not self.redis_client:
-            raise Exception(
-                "get data cache redis client failed: {}".format(self._base_key)
-            )
+            raise Exception("get data cache redis client failed: {}".format(self._base_key))
 
         # 缓存清理间隔
         self._cache_timeout = cache_timeout
@@ -107,9 +105,7 @@ class RedisCacheList(object):
         redis_index_list = list(self.data_cache_redis.keys())
         redis_index_list.sort()
         for redis_index in redis_index_list:
-            data_cache_key_store_key = "spider_data_cache_key_count:{}".format(
-                redis_index
-            )
+            data_cache_key_store_key = "spider_data_cache_key_count:{}".format(redis_index)
             # 先检查此key是否属于此redis
             if self.record_redis_client.zrank(data_cache_key_store_key, self._base_key):
                 # 存在则直接返回
@@ -121,18 +117,14 @@ class RedisCacheList(object):
                 self.logger.info("data_cache_redis: {} 满员")
                 continue
             # 将此key加入此序号redis 然后结束
-            self.record_redis_client.zadd(
-                data_cache_key_store_key, {self._base_key: time.time()}
-            )
+            self.record_redis_client.zadd(data_cache_key_store_key, {self._base_key: time.time()})
             break
         else:
             # 没找到合适的
             return None
         redis_uri = self.data_cache_redis[redis_index]
         if redis_uri not in redis_pool_cache:
-            connection_pool = redis.BlockingConnectionPool.from_url(
-                redis_uri, max_connections=100, timeout=60
-            )
+            connection_pool = redis.BlockingConnectionPool.from_url(redis_uri, max_connections=100, timeout=60)
             redis_pool_cache[redis_uri] = connection_pool
         return redis.StrictRedis(connection_pool=redis_pool_cache[redis_uri])
 
@@ -263,9 +255,7 @@ class RedisCacheList(object):
             new_key[-1] = self.get_unique_id()
             new_key = ":".join(new_key)
             # 锁住当前 new_key 否则 可能别的进程会在切分过程中去处理 造成数据丢失
-            with self.redis_lock_class(
-                key=new_key, timeout=300, wait_timeout=0
-            ) as _lock:
+            with self.redis_lock_class(key=new_key, timeout=300, wait_timeout=0) as _lock:
                 if _lock.locked:
                     pipe = self.redis_client.pipeline()
                     for i in range(data_length_limit):
@@ -273,25 +263,17 @@ class RedisCacheList(object):
                         if i % 1000 == 0:
                             pipe.execute()
                     pipe.execute()
-                    self.logger.info(
-                        "切分成功: {} 长度: {}".format(
-                            new_key, self.redis_client.llen(new_key)
-                        )
-                    )
+                    self.logger.info("切分成功: {} 长度: {}".format(new_key, self.redis_client.llen(new_key)))
         return
 
     def flush(self):
         """获取缓存数据并返回"""
         # 此处加锁保证同一时刻只有一个人 # 不等待锁
-        with self.redis_lock_class(
-            key=self._data_key, timeout=10, wait_timeout=0
-        ) as _lock:
+        with self.redis_lock_class(key=self._data_key, timeout=10, wait_timeout=0) as _lock:
             if _lock.locked:
                 try:
                     # 重命名
-                    new_data_key = "{}:temp:{}".format(
-                        self._data_key, self.get_unique_id()
-                    )
+                    new_data_key = "{}:temp:{}".format(self._data_key, self.get_unique_id())
                     pipe = self.redis_client.pipeline()
                     pipe.rename(self._data_key, new_data_key)
                     # 清空大小
@@ -325,9 +307,7 @@ class RedisCacheList(object):
                 key = key.decode()
                 #
                 # 不等待锁
-                with self.redis_lock_class(
-                    key=key, timeout=120, wait_timeout=0
-                ) as _lock:
+                with self.redis_lock_class(key=key, timeout=120, wait_timeout=0) as _lock:
                     if _lock.locked:
                         # 大key切分
                         # 异常情况下 导致key超长 比如一直加锁失败 锁bug。。。。
@@ -335,9 +315,7 @@ class RedisCacheList(object):
                         #
                         self.logger.info("开始获取缓存数据: {}".format(key))
                         ori_flush_data = self.redis_client.lrange(key, 0, -1)
-                        self.logger.info(
-                            "获取缓存数据成功: {} 长度: {}".format(key, len(ori_flush_data))
-                        )
+                        self.logger.info("获取缓存数据成功: {} 长度: {}".format(key, len(ori_flush_data)))
                         if not ori_flush_data:
                             continue
                         #
@@ -362,9 +340,7 @@ class RedisCacheList(object):
         self.logger.info("清理缓存数据: {} {}".format(key, resp))
         # 统计长度
         if "table_name" in kwargs:
-            count_key = "{}:{}".format(
-                kwargs.get("table_name"), datetime.date.today().strftime("%Y-%m-%d")
-            )
+            count_key = "{}:{}".format(kwargs.get("table_name"), datetime.date.today().strftime("%Y-%m-%d"))
             try:
                 self.record_redis_client.incrby(count_key, le)
             except Exception as e:
@@ -388,9 +364,7 @@ class RedisCacheList(object):
         if "ts" not in kwargs:
             kwargs["ts"] = time.time()
         old_attrs.update(**kwargs)
-        return self.record_redis_client.hset(
-            self.table_attrs_key, self._base_key, json.dumps(old_attrs)
-        )
+        return self.record_redis_client.hset(self.table_attrs_key, self._base_key, json.dumps(old_attrs))
 
     def get_attrs(self):
         """获取属性"""
@@ -473,9 +447,7 @@ class OSSOpt(object):
         self.AccessKeySecret = self.setting_dict["password"].strip()
         self.endpoint = self.setting_dict["host"].strip()
         self.bucket_name = self.setting_dict["db"].strip()
-        self.service_line = (
-            self.setting_dict["params"].get("service_line", [""])[0].strip()
-        )
+        self.service_line = self.setting_dict["params"].get("service_line", [""])[0].strip()
         self.module = self.setting_dict["params"].get("module", [""])[0].strip()
         if not self.service_line or not self.module:
             raise ValueError("no service_line or module")
@@ -601,13 +573,7 @@ class OSSOpt(object):
         return datetime.datetime.now().strftime("%Y/%m/%d/%H/%M/%S")
 
     def upload(
-        self,
-        data,
-        table_name: str = "",
-        root_dir: str = "",
-        data_type: str = "data",
-        compress: bool = None,
-        **kwargs
+        self, data, table_name: str = "", root_dir: str = "", data_type: str = "data", compress: bool = None, **kwargs
     ):
         """
         数据上传到oss
@@ -652,14 +618,10 @@ class OSSOpt(object):
             # 压缩并删除原文件
             snappy_filepath = "{}.snappy".format(filepath)
             util.snappy_hadoop_compress_file(filepath, snappy_filepath, delete_src=True)
-            resp = file_handler.upload(
-                snappy_filepath, remote_dir=remote_dir, root_dir=root_dir, delete=True
-            )
+            resp = file_handler.upload(snappy_filepath, remote_dir=remote_dir, root_dir=root_dir, delete=True)
         else:
             # 上传原文件
-            resp = file_handler.upload(
-                filepath, remote_dir=remote_dir, root_dir=root_dir, delete=True
-            )
+            resp = file_handler.upload(filepath, remote_dir=remote_dir, root_dir=root_dir, delete=True)
         return resp
 
     def add(self, data: dict, *, table_name: str = "", cache: bool = True, **kwargs):
@@ -686,15 +648,7 @@ class OSSOpt(object):
             return 1
         return self.upload(data, table_name=table_name, data_type="data")
 
-    def add_many(
-        self,
-        data,
-        *,
-        table_name: str = "",
-        batch: int = 100,
-        cache: bool = True,
-        **kwargs
-    ):
+    def add_many(self, data, *, table_name: str = "", batch: int = 100, cache: bool = True, **kwargs):
         """
         保存数据  无视错误
         :param data: 数据
@@ -752,15 +706,7 @@ class OSSOpt(object):
             return 1
         return self.upload(data, table_name=table_name, data_type="html")
 
-    def add_many_html(
-        self,
-        data,
-        *,
-        table_name: str = "",
-        batch: int = 100,
-        cache: bool = True,
-        **kwargs
-    ):
+    def add_many_html(self, data, *, table_name: str = "", batch: int = 100, cache: bool = True, **kwargs):
         """
         保存数据
         :param data: 数据
@@ -839,13 +785,9 @@ class OSSOpt(object):
                         else:
                             data_type = "data"
                         # 上传
-                        resp = self.upload(
-                            flush_data, table_name=table_name, data_type=data_type
-                        )
+                        resp = self.upload(flush_data, table_name=table_name, data_type=data_type)
                         self.logger.info(
-                            "oss缓存数据上传: {} {}条 状态: {}".format(
-                                table_name, len(flush_data), resp.status
-                            )
+                            "oss缓存数据上传: {} {}条 状态: {}".format(table_name, len(flush_data), resp.status)
                         )
                         del flush_data
                         if resp.status == 200:
@@ -853,12 +795,7 @@ class OSSOpt(object):
         return
 
     def get_html_cache_info(
-        self,
-        table_name: str = "",
-        start: str = "",
-        end: str = "",
-        use_cache: bool = True,
-        **kwargs
+        self, table_name: str = "", start: str = "", end: str = "", use_cache: bool = True, **kwargs
     ) -> dict:
         """
         获取html缓存信息
@@ -884,9 +821,7 @@ class OSSOpt(object):
             raise ValueError("table_name is empty")
         if use_cache:
             # 尝试从redis中获取
-            _info = self.redis_client_html_cache.hget(
-                self.html_cache_info_key, table_name
-            )
+            _info = self.redis_client_html_cache.hget(self.html_cache_info_key, table_name)
             if _info:
                 return json.loads(_info.decode())
         if not all([start, end]):
@@ -979,9 +914,7 @@ class OSSOpt(object):
             "ts": time.time(),
         }
         # 缓存到redis
-        self.redis_client_html_cache.hset(
-            self.html_cache_info_key, table_name, json.dumps(file_list_info)
-        )
+        self.redis_client_html_cache.hset(self.html_cache_info_key, table_name, json.dumps(file_list_info))
         return file_list_info
 
     def get_html_cache_file(
@@ -1021,17 +954,13 @@ class OSSOpt(object):
         local_file_name = os.path.join(local_dir, local_base_file_name)
         if not os.path.exists(local_file_name):
             # 下载
-            self.html_file_handler.download(
-                oss_file_name, local_file_name=local_base_file_name, local_dir=local_dir
-            )
+            self.html_file_handler.download(oss_file_name, local_file_name=local_base_file_name, local_dir=local_dir)
         #
         # 解压
         if decompress_snappy:
             decompress_local_file_name = local_file_name.replace(".snappy", "")
             if not os.path.exists(decompress_local_file_name):
-                util.snappy_hadoop_decompress_file(
-                    local_file_name, decompress_local_file_name
-                )
+                util.snappy_hadoop_decompress_file(local_file_name, decompress_local_file_name)
             if delete_snappy:
                 os.remove(local_file_name)
             local_file_name = decompress_local_file_name

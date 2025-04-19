@@ -5,6 +5,7 @@
 import os
 import time
 import random
+import inspect
 from collections import deque
 from typing import List, Dict, Union
 
@@ -391,6 +392,16 @@ class Downloader(object):
         if "timeout" not in kwargs:
             kwargs["timeout"] = self.timeout
 
+        # 兼容旧版本 httpx
+        httpx_client_parameters = inspect.signature(httpx.Client.__init__).parameters
+        if "proxies" in httpx_client_parameters:
+            pass
+        else:
+            proxies = kwargs.pop("proxies", {})
+            if proxies and "proxy" in httpx_client_parameters:
+                kwargs["proxy"] = (
+                    proxies.get("http") or proxies.get("https") or proxies.get("http://") or proxies.get("https://")
+                )
         return httpx.Client(**kwargs)
 
     def prepare_request(self, request: Union[str, Dict], **kwargs):

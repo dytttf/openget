@@ -110,14 +110,10 @@ class OSSHandler(object):
                 print("\r下载 {} -> {:.2f}%".format(filename, rate), end="")
                 sys.stdout.flush()
 
-        res = self.bucket.get_object(
-            filename, progress_callback=progress_callback if show_progress else None
-        )
+        res = self.bucket.get_object(filename, progress_callback=progress_callback if show_progress else None)
         return res
 
-    def download_prefix(
-        self, prefix: str = "", local_dir: str = "", delimiter: str = "/", **kwargs
-    ):
+    def download_prefix(self, prefix: str = "", local_dir: str = "", delimiter: str = "/", **kwargs):
         """
             批量下载
         Args:
@@ -152,9 +148,7 @@ class OSSHandler(object):
             if not remote_dir or not root_dir:
                 raise ValueError("args remote_dir or root_dir empty")
             file_name = os.path.basename(file_name)
-            key = "{}/{}/{}".format(
-                root_dir.strip("/"), remote_dir.strip("/"), file_name
-            )
+            key = "{}/{}/{}".format(root_dir.strip("/"), remote_dir.strip("/"), file_name)
         return self.bucket.object_exists(key)
 
     def get_dir_info(self, prefix: str = "", cache: bool = False, **kwargs) -> dict:
@@ -178,9 +172,7 @@ class OSSHandler(object):
             }
 
         """
-        cache_filename = "cache_{}.json".format(
-            hashlib.md5(prefix.encode()).hexdigest()
-        )
+        cache_filename = "cache_{}.json".format(hashlib.md5(prefix.encode()).hexdigest())
         cache_filename = os.path.join(temp_dir, cache_filename)
         if cache:
             # 尝试从本地获取
@@ -291,9 +283,7 @@ class OSSHandler(object):
         if not remote_dir or not root_dir:
             raise ValueError("remote_dir or root_dir empty")
         file_name = os.path.basename(file_path)
-        key = "{}/{}/{}".format(
-            root_dir.strip("/"), remote_dir.strip("/"), remote_filename or file_name
-        )
+        key = "{}/{}/{}".format(root_dir.strip("/"), remote_dir.strip("/"), remote_filename or file_name)
         if not overwrite:
             if self.bucket.object_exists(key):
                 # 返回  meta
@@ -315,9 +305,7 @@ class OSSHandler(object):
                     resp = self.bucket.put_object_from_file(key, file_path)
                 else:
                     # 分片大小
-                    part_size = determine_part_size(
-                        file_size, preferred_size=1000 * 1024
-                    )
+                    part_size = determine_part_size(file_size, preferred_size=1000 * 1024)
                     # 初始化分片
                     upload_id = self.bucket.init_multipart_upload(key).upload_id
                     parts = []
@@ -354,9 +342,7 @@ class OSSHandler(object):
                 pass
         return resp
 
-    def upload_object(
-        self, file_obj, file_name, remote_dir="", root_dir="", overwrite=True, **kwargs
-    ):
+    def upload_object(self, file_obj, file_name, remote_dir="", root_dir="", overwrite=True, **kwargs):
         """
         上传文件对象 或者 文件内容
         Args:
@@ -388,9 +374,7 @@ class OSSHandler(object):
                 self.init()
         return resp
 
-    def upload_object_part(
-        self, data, file_name, upload_id, part_id, remote_dir="", root_dir=""
-    ):
+    def upload_object_part(self, data, file_name, upload_id, part_id, remote_dir="", root_dir=""):
         """
         上传分片内容
 
@@ -409,9 +393,7 @@ class OSSHandler(object):
         result = self.bucket.upload_part(key, upload_id, part_id, data)
         return result
 
-    def complete_multipart_upload(
-        self, file_name, upload_id, parts, remote_dir="", root_dir=""
-    ):
+    def complete_multipart_upload(self, file_name, upload_id, parts, remote_dir="", root_dir=""):
         """
         完成分片上传任务
         Args:
