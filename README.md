@@ -21,7 +21,11 @@ from openget.spiders import *
 # 环境变量类型的配置文件
 python -m openget --gen_env_example
 ```
-
+2. 查看配置文件内容
+```shell
+# 环境变量类型的配置文件
+python -m openget --show_env_config
+```
 
 ## About Environment Variable
 ### 优先级
