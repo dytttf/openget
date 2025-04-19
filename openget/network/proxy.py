@@ -13,9 +13,10 @@ from urllib import parse
 from collections import deque
 from typing import Union, List, Dict, Optional
 from os import path
+import httpx
+import inspect
 
 import redis
-import httpx
 
 from openget.utils import log
 
@@ -57,9 +58,7 @@ def get_proxy_from_uri(uri_list: Union[str, List[str]], **kwargs):
     return r
 
 
-def get_proxy_from_http(
-    url: str, cache_file: str = "", cache_expire: int = 60, **kwargs
-):
+def get_proxy_from_http(url: str, cache_file: str = "", cache_expire: int = 60, **kwargs):
     """
         Get proxy from http server
     Args:
@@ -138,9 +137,7 @@ def get_proxy_from_file(filepath, **kwargs) -> List[Dict]:
     return proxies_list
 
 
-def get_proxy_from_redis(
-    key, redis_uri="", redis_client: redis.Redis = None, **kwargs
-) -> List[Dict]:
+def get_proxy_from_redis(key, redis_uri="", redis_client: redis.Redis = None, **kwargs) -> List[Dict]:
     """
         Get proxy from redis zset
 
@@ -218,26 +215,24 @@ def check_proxy(
                     logger.debug("check proxy failed: {} {}:{}".format(e, ip, port))
             sk.close()
     else:
-        target_url = random.choice(
-            [
-                "http://www.baidu.com",
-                "http://www.taobao.com",
-            ]
-        )
+        target_url = random.choice(["http://www.baidu.com", "http://www.taobao.com"])
         try:
-            httpx.stream(
-                "GET",
-                target_url,
-                headers={
-                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.69 Safari/537.36"
-                },
-                proxies=proxies,
-                timeout=timeout,
-            )
+            ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36"
+            stream_kwargs = dict(headers={"User-Agent": ua}, timeout=timeout)
+            # 兼容旧版本 httpx
+            httpx_client_parameters = inspect.signature(httpx.stream).parameters
+            if "proxies" not in httpx_client_parameters:
+                if proxies and "proxy" in httpx_client_parameters:
+                    stream_kwargs["proxy"] = (
+                        proxies.get("http") or proxies.get("https") or proxies.get("http://") or proxies.get("https://")
+                    )
+            else:
+                stream_kwargs["proxies"] = proxies
+            httpx.stream("GET", target_url, **stream_kwargs)
             ok = 1
         except Exception as e:
             if show_error_log:
-                logger.debug("check proxy failed: {} {}".format(e, proxies))
+                logger.debug(f"check proxy failed: {e} {proxies}")
     return ok
 
 
@@ -437,9 +432,7 @@ class RedisProxyItem(ProxyItem):
 
     """
 
-    def __init__(
-        self, redis_client: redis.Redis, namespace: str = "default", *args, **kwargs
-    ):
+    def __init__(self, redis_client: redis.Redis, namespace: str = "default", *args, **kwargs):
         """
             Isolate the different application
         Args:
@@ -588,15 +581,11 @@ class ProxyPool:
         self.proxy_dict = {}
         # clear invalid_proxy record where expire more than 10 minutes.
         _limit = datetime.datetime.now() - datetime.timedelta(minutes=10)
-        self.invalid_proxy_dict = {
-            k: v for k, v in self.invalid_proxy_dict.items() if v > _limit
-        }
+        self.invalid_proxy_dict = {k: v for k, v in self.invalid_proxy_dict.items() if v > _limit}
         # clear proxy_item_update_ts record where expire more than 10 minutes.
         _limit = time.time() - 600
         self.proxy_item_last_check_valid_ts_dict = {
-            k: v
-            for k, v in self.proxy_item_last_check_valid_ts_dict.items()
-            if v > _limit
+            k: v for k, v in self.proxy_item_last_check_valid_ts_dict.items() if v > _limit
         }
 
         if self.namespace:
@@ -645,9 +634,7 @@ class ProxyPool:
                 is_valid = proxy_item.is_valid()
                 if is_valid:
                     #
-                    self.proxy_item_last_check_valid_ts_dict[
-                        proxy_item.id
-                    ] = proxy_item.last_check_valid_ts
+                    self.proxy_item_last_check_valid_ts_dict[proxy_item.id] = proxy_item.last_check_valid_ts
                     #
                     proxies = proxy_item.get_proxies()
                     self.put_proxy_item(proxy_item)
@@ -720,11 +707,7 @@ class ProxyPool:
                     continue
                 if proxy_item.id not in self.proxy_dict:
                     if not proxy_item.last_check_valid_ts:
-                        proxy_item.last_check_valid_ts = (
-                            self.proxy_item_last_check_valid_ts_dict.get(
-                                proxy_item.id, 0
-                            )
-                        )
+                        proxy_item.last_check_valid_ts = self.proxy_item_last_check_valid_ts_dict.get(proxy_item.id, 0)
                     self.put_proxy_item(proxy_item)
                     self.proxy_dict[proxy_item.id] = proxy_item
                     count += 1
@@ -751,22 +734,14 @@ class ProxyPool:
             if (
                 force
                 or self.proxy_queue is None
-                or (
-                    self.max_queue_size > 0
-                    and self.proxy_queue.qsize() < self.max_queue_size / 2
-                )
-                or (
-                    self.max_queue_size < 0
-                    and self.proxy_queue.qsize() < self.real_max_proxy_count / 2
-                )
+                or (self.max_queue_size > 0 and self.proxy_queue.qsize() < self.max_queue_size / 2)
+                or (self.max_queue_size < 0 and self.proxy_queue.qsize() < self.real_max_proxy_count / 2)
                 or self.no_valid_proxy_times >= 5
             ):
                 if time.time() - self.last_reset_time < self.min_reset_interval:
                     self.reset_fast_count += 1
                     if self.reset_fast_count % 10 == 0:
-                        self.logger.debug(
-                            f"Reset pool too fast :) {self.reset_fast_count}"
-                        )
+                        self.logger.debug(f"Reset pool too fast :) {self.reset_fast_count}")
                         time.sleep(1)
                 else:
                     self.clear()
@@ -774,9 +749,7 @@ class ProxyPool:
                         import queue
 
                         self.proxy_queue = queue.Queue()
-                    proxies_list = get_proxy_from_uri(
-                        self.kwargs["proxy_source_uri"], **self.kwargs
-                    )
+                    proxies_list = get_proxy_from_uri(self.kwargs["proxy_source_uri"], **self.kwargs)
                     self.real_max_proxy_count = len(proxies_list)
                     if 0 < self.max_queue_size < self.real_max_proxy_count:
                         proxies_list = random.sample(proxies_list, self.max_queue_size)
@@ -874,9 +847,7 @@ class ProxyPool:
 
 
 #
-default_proxy_pool = ProxyPool(
-    proxy_source_uri=[os.getenv("OPENGET_PROXY_SERVICE_URL")]
-)
+default_proxy_pool = ProxyPool(proxy_source_uri=[os.getenv("OPENGET_PROXY_SERVICE_URL")])
 
 
 if __name__ == "__main__":

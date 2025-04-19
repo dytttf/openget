@@ -50,9 +50,7 @@ class SQLiteOpt(object):
         self.options = options
         self.key = repr(options)
 
-        self.logger: logging.Logger = self.kwargs.pop("logger", None) or log.get_logger(
-            __file__
-        )
+        self.logger: logging.Logger = self.kwargs.pop("logger", None) or log.get_logger(__file__)
 
         self.table_name = ""
 
@@ -136,9 +134,7 @@ class SQLiteOpt(object):
             if "id" not in fields_keys:
                 fields["id"] = "integer primary key autoincrement"
             if "created_time" not in fields_keys:
-                fields[
-                    "created_time"
-                ] = "timestamp default (datetime('now', 'localtime'))"
+                fields["created_time"] = "timestamp default (datetime('now', 'localtime'))"
 
             if type == "task":
                 if "state" not in fields_keys:
@@ -152,11 +148,7 @@ class SQLiteOpt(object):
             fields = (
                 [x for x in fields if x[0].lower() == "id"]
                 + [x for x in fields if x[0].lower() not in default_fields]
-                + [
-                    x
-                    for x in fields
-                    if x[0].lower() in default_fields and x[0].lower() != "id"
-                ]
+                + [x for x in fields if x[0].lower() in default_fields and x[0].lower() != "id"]
             )
 
             sql = """
@@ -170,10 +162,8 @@ class SQLiteOpt(object):
             sql_list.append(sql)
 
             if unique:
-                sql = (
-                    "create unique index if not exists `{}_unique` on {} ({});".format(
-                        table_name, table_name, ",".join(unique)
-                    )
+                sql = "create unique index if not exists `{}_unique` on {} ({});".format(
+                    table_name, table_name, ",".join(unique)
                 )
                 sql_list.append(sql)
         #
@@ -188,9 +178,7 @@ class SQLiteOpt(object):
         return escape_str(*args, **kwargs)
 
     @staticmethod
-    def escape_values(
-        data: Dict, sort_keys: List = None, strip: bool = True
-    ) -> OrderedDict:
+    def escape_values(data: Dict, sort_keys: List = None, strip: bool = True) -> OrderedDict:
         """
             Convert data to mysql support types.
 

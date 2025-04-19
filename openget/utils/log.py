@@ -70,10 +70,7 @@ def get_logger(
 
     #
     formatter = logging.Formatter(log_format)
-    if (
-        os.getenv("OPENGET_FORBIDDED_BETTER_EXCEPTIONS", "false").lower() != "true"
-        and format_exception
-    ):
+    if os.getenv("OPENGET_FORBIDDED_BETTER_EXCEPTIONS", "false").lower() != "true" and format_exception:
         formatter.formatException = _format_exception
 
     stream_handler = logging.StreamHandler(stream=sys.stdout)
@@ -81,10 +78,7 @@ def get_logger(
     # check duplicate
     handle_exists = 0
     for _handler in _logger.handlers:
-        if (
-            isinstance(_handler, logging.StreamHandler)
-            and _handler.stream == sys.stdout
-        ):
+        if isinstance(_handler, logging.StreamHandler) and _handler.stream == sys.stdout:
             handle_exists = 1
     if not handle_exists:
         _logger.addHandler(stream_handler)

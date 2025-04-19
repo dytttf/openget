@@ -76,9 +76,7 @@ class PostgreSQLOpt(object):
     # 连接池 共用
     connection_list = {}
 
-    def __init__(
-        self, options, is_pool: bool = True, cursor_class: str = None, **kwargs
-    ):
+    def __init__(self, options, is_pool: bool = True, cursor_class: str = None, **kwargs):
         """
         Args:
             options: postgresql连接参数字典
@@ -552,9 +550,7 @@ class PostgreSQLOpt(object):
                     "keys": keys,
                     "values": values,
                     "table_name": table_name,
-                    "update_data": ",".join(
-                        [f"{k} = {v}" for k, v in order_data.items()]
-                    ),
+                    "update_data": ",".join([f"{k} = {v}" for k, v in order_data.items()]),
                     "conflict_expr": conflict_expr,
                 }
             )

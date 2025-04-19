@@ -14,6 +14,7 @@ Examples:
     ...     r = parse_redis_uri("redis://:{}@host1:12/0".format(password))
     ...     assert r["password"] == password
 """
+
 from typing import Union, Tuple, Dict
 import redis
 from redis.sentinel import Sentinel
@@ -60,9 +61,7 @@ def parse_redis_uri(uri) -> Dict:
     }
 
 
-def create_redis_client(
-    uri: str, **kwargs
-) -> Union[redis.Redis, Tuple[redis.Redis, redis.Redis]]:
+def create_redis_client(uri: str, **kwargs) -> Union[redis.Redis, Tuple[redis.Redis, redis.Redis]]:
     """
         Create redis client
     Args:
@@ -78,11 +77,7 @@ def create_redis_client(
     if "redis://" in uri:
         options = parse_redis_uri(uri)
         return redis.Redis(
-            host=options["host"],
-            port=options["port"],
-            password=options["password"],
-            db=options["db"],
-            **kwargs
+            host=options["host"], port=options["port"], password=options["password"], db=options["db"], **kwargs
         )
     elif "redis+sentinel" in uri:
         options = parse_sentinel_uri(uri)

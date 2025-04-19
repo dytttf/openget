@@ -24,9 +24,7 @@ class Response(HttpxResponse):
         """
         self.request: Request = request
         self.response = response
-        self.exception = exception or (
-            response.openget_exception if response is not None else None
-        )
+        self.exception = exception or (response.openget_exception if response is not None else None)
         self.kwargs = kwargs
 
     def __repr__(self):

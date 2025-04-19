@@ -187,9 +187,7 @@ class SingleBatchSpider(Spider):
         default_redis_uri = kwargs.get("default_redis_uri", setting.default_redis_uri)
         if not self.use_sqlite:
             self.redis_client = redis.StrictRedis(
-                connection_pool=redis.BlockingConnectionPool.from_url(
-                    default_redis_uri, max_connections=10, timeout=60
-                )
+                connection_pool=redis.BlockingConnectionPool.from_url(default_redis_uri, max_connections=10, timeout=60)
             )
         default_mysql_uri = kwargs.get("default_mysql_uri", setting.default_mysql_uri)
         if self.db is None:
@@ -278,9 +276,7 @@ class SingleBatchSpider(Spider):
         # todo 此处可能有bug  若某个爬虫覆盖了 则这套机制失效
         if self.other_spider_stoped:
             state_key = f"{self.task_key}:other_spider_stoped"
-            idx = util.key2index(
-                state_key, index_range=list(setting.redis_util_cluster)
-            )
+            idx = util.key2index(state_key, index_range=list(setting.redis_util_cluster))
             self._close_reason = "redis: {},由于已有爬虫停止 故终止当前爬虫".format(idx)
             logger.debug(self._close_reason)
             return 1
@@ -416,9 +412,7 @@ class SingleBatchSpider(Spider):
                 redis_lock.prolong_life(int(_query_use_time))
             #
 
-            logger.info(
-                "Get {} tasks, take {:0.3} s".format(len(sql_result), _query_use_time)
-            )
+            logger.info("Get {} tasks, take {:0.3} s".format(len(sql_result), _query_use_time))
             if not sql_result:
                 break
 
@@ -496,11 +490,7 @@ class SingleBatchSpider(Spider):
                     self.redis_client.lpush(self.task_key, *task_list)
                 del task_list
         _db.close()
-        logger.info(
-            "A total of {} tasks are obtained from MySQL this time".format(
-                current_get_task_count
-            )
-        )
+        logger.info("A total of {} tasks are obtained from MySQL this time".format(current_get_task_count))
         return current_get_task_count
 
     def make_request(self, task_obj: JsonTask, *args, **kwargs) -> Request:
@@ -516,9 +506,7 @@ class SingleBatchSpider(Spider):
         """
         pass
 
-    def put_task(
-        self, task, retry=True, show_log=True, task_key: str = None, message: str = ""
-    ):
+    def put_task(self, task, retry=True, show_log=True, task_key: str = None, message: str = ""):
         """
             Append task to redis
         Args:
@@ -534,14 +522,9 @@ class SingleBatchSpider(Spider):
         r = 0
         #
         task_list = task if isinstance(task, list) else [task]
-        task_list = [
-            x if not isinstance(x, JsonTask) else x.to_json() for x in task_list
-        ]
+        task_list = [x if not isinstance(x, JsonTask) else x.to_json() for x in task_list]
 
-        task_list = [
-            json.dumps(x, ensure_ascii=False) if not isinstance(x, str) else x
-            for x in task_list
-        ]
+        task_list = [json.dumps(x, ensure_ascii=False) if not isinstance(x, str) else x for x in task_list]
         task_size = len(task_list)
         example_task = task_list[0] if task_size == 1 else task_list
         if show_log:
@@ -688,10 +671,7 @@ class SingleBatchSpider(Spider):
         Returns:
 
         """
-        if (
-            not self.debug
-            and self._last_check_lost_time < time.time() - self.auto_check_lost_interval
-        ):
+        if not self.debug and self._last_check_lost_time < time.time() - self.auto_check_lost_interval:
             self._last_check_lost_time = time.time()
             _lost_task_reset_limit = self.lost_task_reset_limit
             self.lost_task_reset_limit = 1000
@@ -705,9 +685,7 @@ class SingleBatchSpider(Spider):
         if self.use_sqlite:
             self.check_lost_task()
         else:
-            with util.RedisLock(
-                key, timeout=self.lock_timeout, wait_timeout=0
-            ) as _lock:
+            with util.RedisLock(key, timeout=self.lock_timeout, wait_timeout=0) as _lock:
                 if _lock.locked:
                     self.check_lost_task()
                     # 重置间隔最少1分钟
@@ -810,9 +788,7 @@ class SingleBatchSpider(Spider):
                     i += 1
         return task
 
-    def _get_task_obj(
-        self, max_retry: int = 10, group: bool = False, **kwargs
-    ) -> JsonTask:
+    def _get_task_obj(self, max_retry: int = 10, group: bool = False, **kwargs) -> JsonTask:
         """
             获取任务执行 JsonTask 对象
         Args:
@@ -845,9 +821,7 @@ class SingleBatchSpider(Spider):
         return task_obj
 
     def _init_simple_redis_cluster(self, key):
-        redis_index = util.key2index(
-            key, index_range=list(setting.redis_util_cluster.keys())
-        )
+        redis_index = util.key2index(key, index_range=list(setting.redis_util_cluster.keys()))
         redis_uri = setting.redis_util_cluster[redis_index]
         # connection_pool = redis.BlockingConnectionPool.from_url(
         #     redis_uri, max_connections=100, timeout=60
@@ -1020,9 +994,7 @@ class BatchSpider(SingleBatchSpider):
         Returns:
 
         """
-        _format = {"day": "%Y-%m-%d", "hour": "%Y-%m-%d %H:00:00"}[
-            self.batch_interval_unit
-        ]
+        _format = {"day": "%Y-%m-%d", "hour": "%Y-%m-%d %H:00:00"}[self.batch_interval_unit]
         return _format
 
     @property
@@ -1226,9 +1198,7 @@ class BatchSpider(SingleBatchSpider):
         Returns:
 
         """
-        if total_count == 0 or (
-            done_count / total_count >= self.batch_complete_ratio and done_count != 0
-        ):
+        if total_count == 0 or (done_count / total_count >= self.batch_complete_ratio and done_count != 0):
             return 1
         return 0
 
@@ -1293,11 +1263,7 @@ class BatchSpider(SingleBatchSpider):
         now = datetime.datetime.now()
         # 批次间隔
         batch_interval_timedelta = datetime.timedelta(
-            **{
-                {"day": "days", "hour": "hours"}[
-                    self.batch_interval_unit
-                ]: self.batch_interval
-            }
+            **{{"day": "days", "hour": "hours"}[self.batch_interval_unit]: self.batch_interval}
         )
         ####
         # 检查上批次是否完成 完成后设置停止标志
@@ -1331,9 +1297,7 @@ class BatchSpider(SingleBatchSpider):
                 batch_date=batch_date,
                 batch_interval_timedelta=batch_interval_timedelta,
             ):
-                new_batch_date = self.get_new_batch_date(
-                    now=now, batch_date=batch_date, batch_date_str=batch_date_str
-                )
+                new_batch_date = self.get_new_batch_date(now=now, batch_date=batch_date, batch_date_str=batch_date_str)
                 if not new_batch_date:
                     logger.debug("上批次时间 {} 下批次时间未到".format(batch_date_str))
                     return
@@ -1354,9 +1318,7 @@ class BatchSpider(SingleBatchSpider):
                 # 重置mysql任务表状态
                 logger.info("开始重置mysql中任务状态")
                 reset_count = self._reset_task_table()
-                logger.debug(
-                    "mysql重置 {} 成功 {}".format(self.state_field_name, reset_count)
-                )
+                logger.debug("mysql重置 {} 成功 {}".format(self.state_field_name, reset_count))
 
                 # 假如之前的重置了一半失败了   那么下次会继续重新重置
                 # 并且如果在重置失败期间 爬虫开始执行新的任务
@@ -1364,26 +1326,18 @@ class BatchSpider(SingleBatchSpider):
                 # 统计批次时也是从redis中获取 也不会影响
                 #
                 r = self.append_new_batch_record(new_batch_date=new_batch_date, now=now)
-                _message = "插入新批次 {} 记录成功 {} 任务重置 {}".format(
-                    new_batch_date, r, reset_count
-                )
+                _message = "插入新批次 {} 记录成功 {} 任务重置 {}".format(new_batch_date, r, reset_count)
                 logger.info(_message)
             else:
                 logger.debug("上批次时间 {} 下批次时间未到".format(batch_date_str))
         else:
-            _message = "上次采集尚未完成 {} {}/{}".format(
-                batch_date_str, done_count, total_count
-            )
+            _message = "上次采集尚未完成 {} {}/{}".format(batch_date_str, done_count, total_count)
             # 计算剩余时间
-            spend_ratio = (
-                now - batch_date
-            ).total_seconds() / batch_interval_timedelta.total_seconds()
+            spend_ratio = (now - batch_date).total_seconds() / batch_interval_timedelta.total_seconds()
             done_ratio = done_count / total_count if total_count > 0 else 1
             if spend_ratio > 0.5 and spend_ratio > done_ratio:
                 # 花费时间比例 > 完成任务比例
-                _message += "\n警告 任务可能超时 {:.2f} / {:.2f}".format(
-                    spend_ratio, done_ratio
-                )
+                _message += "\n警告 任务可能超时 {:.2f} / {:.2f}".format(spend_ratio, done_ratio)
                 self.send_message(_message)
         return
 
@@ -1402,10 +1356,7 @@ class BatchSpider(SingleBatchSpider):
     def _record_batch_count(self, debug: bool = False):
         if self.debug:
             debug = self.debug
-        if not debug and (
-            time.time() - self.last_record_batch_count_time
-            < self.record_batch_count_interval
-        ):
+        if not debug and (time.time() - self.last_record_batch_count_time < self.record_batch_count_interval):
             return
         key = "{}:record_batch_count".format(self.task_key)
         # 加锁保证同一时间仅有一个进程在统计  因为多次重复统计没啥意义  还浪费资源
@@ -1452,13 +1403,7 @@ class BatchSpider(SingleBatchSpider):
                 assert isinstance(k[0], int), "状态字段必须为整型"
             #
             total = sum([x[1] for x in state_count_info if x[0] in state_dict.values()])
-            done = sum(
-                [
-                    x[1]
-                    for x in state_count_info
-                    if x[0] in (state_dict["error"], state_dict["finish"])
-                ]
-            )
+            done = sum([x[1] for x in state_count_info if x[0] in (state_dict["error"], state_dict["finish"])])
             fail = sum([x[1] for x in state_count_info if x[0] == state_dict["error"]])
 
             # 更新状态
@@ -1474,9 +1419,7 @@ class BatchSpider(SingleBatchSpider):
             where_sql = f"""`batch_date`='{self.batch_date}' and 
                             (`done_count` != {done} or `total_count` != {total} or `fail_count` != {fail} or `interval` != {self.batch_interval} or `interval_unit` != '{self.batch_interval_unit}')
                             """
-            r = _db.update(
-                update_data, where_sql=where_sql, table_name=self.task_batch_table_name
-            )
+            r = _db.update(update_data, where_sql=where_sql, table_name=self.task_batch_table_name)
             _db.close()
         except Exception as e:
             logger.exception(e)
@@ -1495,9 +1438,7 @@ class BatchSpider(SingleBatchSpider):
         super()._get_task_from_mysql()
         return
 
-    def get_task(
-        self, obj: bool = False, block: bool = True, group: bool = False, **kwargs
-    ):
+    def get_task(self, obj: bool = False, block: bool = True, group: bool = False, **kwargs):
         """
             获取任务
         Args:

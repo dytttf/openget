@@ -142,10 +142,7 @@ class OracleOpt(object):
     @property
     def cursor(self):
         if not self._cursor:
-            if (
-                not self.reuse_connection
-                or self.key not in OracleOpt.connection_list.keys()
-            ):
+            if not self.reuse_connection or self.key not in OracleOpt.connection_list.keys():
                 self._cursor = self.get_cursor()
                 if self.reuse_connection:
                     OracleOpt.connection_list[self.key] = self._cursor
@@ -268,9 +265,7 @@ class OracleOpt(object):
             _cursor.execute(sql)
             resp = 0
         except Exception as e:
-            if ignore_duplicate and (
-                "unique constraint" in str(e) or "违反唯一约束条件" in str(e)
-            ):
+            if ignore_duplicate and ("unique constraint" in str(e) or "违反唯一约束条件" in str(e)):
                 self.logger.error(e)
                 resp = 1
             else:
@@ -323,9 +318,7 @@ class OracleOpt(object):
         error_data = []
         dup_index_hint = ""
         if ignore_unique_key:
-            dup_index_hint = '/*+IGNORE_ROW_ON_DUPKEY_INDEX("{}","{}")*/'.format(
-                table_name, ignore_unique_key
-            )
+            dup_index_hint = '/*+IGNORE_ROW_ON_DUPKEY_INDEX("{}","{}")*/'.format(table_name, ignore_unique_key)
 
         _cursor = self.get_cursor(self.connection)
 
@@ -347,10 +340,7 @@ class OracleOpt(object):
 
                 value_sql_list = ["select {} from dual".format(values_list[0])]
                 if len(values_list) > 1:
-                    value_sql_list.extend(
-                        "union all select {} from dual".format(x)
-                        for x in values_list[1:]
-                    )
+                    value_sql_list.extend("union all select {} from dual".format(x) for x in values_list[1:])
                 sql = sql.format(
                     **{
                         "hint": dup_index_hint,
@@ -402,9 +392,7 @@ class OracleOpt(object):
         Returns:
 
         """
-        sql = "SELECT INDEX_NAME FROM USER_INDEXES WHERE UNIQUENESS='UNIQUE' AND TABLE_NAME='{}'".format(
-            table_name
-        )
+        sql = "SELECT INDEX_NAME FROM USER_INDEXES WHERE UNIQUENESS='UNIQUE' AND TABLE_NAME='{}'".format(table_name)
         indexes = self.query_all(sql)
         return [x[0] for x in indexes]
 
