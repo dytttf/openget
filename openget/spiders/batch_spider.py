@@ -216,6 +216,11 @@ class SingleBatchSpider(Spider):
         # 状态字段名 默认state
         self.state_field_name = "state"
 
+        # 排序方式 默认不排序 eg: order by id desc
+        self.task_order_by = ""  #
+        # 任务过滤 eg: url != '' and gtime > ''
+        self.task_filter = ""
+
         # 状态值 用于标记任务状态
         self.state_dict = {"error": -1, "finish": 1, "wait": 0, "run": 2}
 
@@ -306,11 +311,14 @@ class SingleBatchSpider(Spider):
 
         # 获取查看是否任务已经全部完成
         _db = self.db.copy()
+        task_filter = f"and {self.task_filter} " if self.task_filter else ""
         # 重置 2 为 0
         sql = f"""
             update {self.task_table_name} 
             set {self.state_field_name}={self.state_dict['wait']} 
             where {self.state_field_name}={self.state_dict['run']} 
+            {task_filter}
+            {self.task_order_by}
         """
         if not self.use_sqlite:
             # https://stackoverflow.com/questions/29071169/update-query-with-limit-cause-sqlite
@@ -400,9 +408,12 @@ class SingleBatchSpider(Spider):
             # 从mysql读取任务数据
             task_field_str = ", ".join(["`{}`".format(x) for x in self.task_field_list])
             step_limit = min(task_mysql_limit, self.task_mysql_limit_step)
+            #
+            task_filter = f"and {self.task_filter} " if self.task_filter else ""
+            #
             sql = f"""select `id`, {task_field_str} 
                       from {self.task_table_name} 
-                      where {self.state_field_name}={self.state_dict["wait"]} limit {step_limit};
+                      where {self.state_field_name}={self.state_dict["wait"]} {task_filter} {self.task_order_by} limit {step_limit};
                     """
             # 某些情况 比如京东这里会很慢 所以做一个增加锁超时时间的操作 防止由于锁超时导致并发查询
             _query_start = time.time()
@@ -1222,9 +1233,9 @@ class BatchSpider(SingleBatchSpider):
         now = kwargs["now"]
         new_batch_date = kwargs["new_batch_date"]
         # 获取任务总数
-        sql = "select count(1) from {}".format(self.task_table_name)
+        task_filter = f"where {self.task_filter}" if self.task_filter else ""
+        sql = f"select count(1) from {self.task_table_name} {task_filter}"
         total_count = self.db.query_all(sql)[0][0]
-
         # 插入新批次记录
         sql = """INSERT INTO {} ( `batch_date`, `done_count`, `total_count`, `interval`, `interval_unit`, `update_time`, `create_time` )
                                     VALUES( '{}', {}, {}, {}, '{}', '{}', '{}' )
@@ -1394,8 +1405,9 @@ class BatchSpider(SingleBatchSpider):
             #
             _db = self.db.copy()
             #
-            sql = "select {field}, count({field}) from {table} group by {field}".format(
-                field=self.state_field_name, table=self.task_table_name
+            task_filter = f"where {self.task_filter}" if self.task_filter else ""
+            sql = "select {field}, count({field}) from {table} {task_filter} group by {field}".format(
+                field=self.state_field_name, table=self.task_table_name, task_filter=task_filter
             )
             state_count_info = _db.query_all(sql)
             # 字段类型校验
