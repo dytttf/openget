@@ -1,6 +1,5 @@
 # coding:utf8
-"""
-"""
+""" """
 import hashlib
 import logging
 import os
@@ -432,21 +431,17 @@ class RedisProxyItem(ProxyItem):
 
     """
 
-    def __init__(self, redis_client: redis.Redis, namespace: str = "default", *args, **kwargs):
+    def __init__(self, **kwargs):
         """
             Isolate the different application
         Args:
-            redis_client:
-            namespace:
-            *args:
             **kwargs:
         """
 
-        super().__init__(*args, **kwargs)
+        super().__init__(**kwargs)
         #
-        #
-        self.redis_client = redis_client
-        self.namespace = namespace
+        self.redis_client: redis.Redis = kwargs.get("redis_client")
+        self.namespace: str = kwargs.get("namespace")
         #
         self.use_time_key = f"{self.namespace}:proxy_use_time"
         self.tag_key = f"{self.namespace}:proxy_tag"
@@ -560,7 +555,7 @@ class ProxyPool:
         self.proxy_item_last_check_valid_ts_dict = {}
         #
         # Whether to use RedisProxyItem
-        self.redis_client: redis.Redis = self.kwargs.get("redis_client", "")
+        self.redis_client: redis.Redis = self.kwargs.get("redis_client")
         self.namespace = self.kwargs.get("namespace", "")
         if self.redis_client:
             self.proxy_item_class = RedisProxyItem
@@ -784,12 +779,7 @@ class ProxyPool:
         for proxies in proxies_list:
             if not proxies:
                 continue
-            proxy_id = self.proxy_item_class(
-                self.kwargs["redis_client"],
-                self.kwargs["namespace"],
-                proxies,
-                **self.kwargs,
-            ).id
+            proxy_id = self.proxy_item_class(proxies=proxies, **self.kwargs).id
             if proxy_id not in self.proxy_dict:
                 continue
             self.proxy_dict[proxy_id].tag = tag
@@ -815,7 +805,7 @@ class ProxyPool:
         if proxy_id:
             return self.proxy_dict.get(proxy_id)
         if proxies:
-            proxy_id = self.proxy_item_class(proxies, **self.kwargs).id
+            proxy_id = self.proxy_item_class(proxies=proxies, **self.kwargs).id
             return self.proxy_dict.get(proxy_id)
         return
 
